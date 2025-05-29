@@ -1,0 +1,75 @@
+<div class="local-sesdashboard-email-details">
+    <div class="mb-3">
+        <a href="{{back_url}}" class="btn btn-success">
+            <i class="fa fa-arrow-left"></i> {{#str}}backtoreport, local_sesdashboard{{/str}}
+        </a>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0"><i class="fa fa-envelope-open"></i> {{#str}}emaildetails, local_sesdashboard{{/str}}</h4>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i class="fa fa-info-circle"></i> 
+                <strong>Note:</strong> This shows email tracking metadata. The actual email content is not stored for privacy and storage optimization reasons.
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <h5 class="text-primary"><i class="fa fa-info"></i> Basic Information</h5>
+                    <dl class="row">
+                        <dt class="col-sm-4"><i class="fa fa-calendar"></i> {{#str}}date, local_sesdashboard{{/str}}:</dt>
+                        <dd class="col-sm-8"><strong>{{formatted_date}}</strong></dd>
+                        
+                        <dt class="col-sm-4"><i class="fa fa-envelope"></i> {{#str}}recipient, local_sesdashboard{{/str}}:</dt>
+                        <dd class="col-sm-8"><code>{{email.email}}</code></dd>
+                        
+                        <dt class="col-sm-4"><i class="fa fa-text-width"></i> {{#str}}subject, local_sesdashboard{{/str}}:</dt>
+                        <dd class="col-sm-8">{{email.subject}}</dd>
+                        
+                        <dt class="col-sm-4"><i class="fa fa-flag"></i> {{#str}}status, local_sesdashboard{{/str}}:</dt>
+                        <dd class="col-sm-8">
+                            {{{email.status_badge}}}
+                        </dd>
+                    </dl>
+                </div>
+                
+                <div class="col-md-6">
+                    <h5 class="text-primary"><i class="fa fa-cogs"></i> Technical Information</h5>
+                    <dl class="row">
+                        {{#email.messageid}}
+                        <dt class="col-sm-4"><i class="fa fa-barcode"></i> {{#str}}messageid, local_sesdashboard{{/str}}:</dt>
+                        <dd class="col-sm-8"><code style="word-break: break-all;">{{email.messageid}}</code></dd>
+                        {{/email.messageid}}
+                        
+                        {{#email.eventtype}}
+                        <dt class="col-sm-4"><i class="fa fa-tag"></i> {{#str}}eventtype, local_sesdashboard{{/str}}:</dt>
+                        <dd class="col-sm-8">{{email.eventtype}}</dd>
+                        {{/email.eventtype}}
+                        
+                        {{#email.userid}}
+                        <dt class="col-sm-4"><i class="fa fa-user"></i> User ID:</dt>
+                        <dd class="col-sm-8">{{email.userid}}</dd>
+                        {{/email.userid}}
+                        
+                        <dt class="col-sm-4"><i class="fa fa-database"></i> Record ID:</dt>
+                        <dd class="col-sm-8">{{email.id}}</dd>
+                        
+                        <dt class="col-sm-4"><i class="fa fa-clock-o"></i> Timestamp:</dt>
+                        <dd class="col-sm-8"><code>{{email.timecreated}}</code></dd>
+                    </dl>
+                </div>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-12">
+                    <h5 class="text-primary"><i class="fa fa-info-circle"></i> Status Information</h5>
+                    <div class="alert alert-light">
+                        {{{email.status_description}}}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

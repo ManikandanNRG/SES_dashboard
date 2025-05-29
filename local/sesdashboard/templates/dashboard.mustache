@@ -1,0 +1,82 @@
+<div class="ses-dashboard" id="ses-dashboard-data">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2>{{#str}}emailstats, local_sesdashboard{{/str}}</h2>
+                <a href="{{report_url}}" class="btn btn-primary ml-3">{{#str}}viewdetailedreport, local_sesdashboard{{/str}}</a>
+            </div>
+            <div class="timeframe-selector mt-3">
+                <form method="get" action="" class="form-inline">
+                    <label for="timeframe" class="mr-2">Time Period:</label>
+                    <select class="form-control mr-2" id="timeframe" name="timeframe" onchange="this.form.submit()">
+                        {{#timeframeoptions}}
+                        <option value="{{value}}" {{#selected}}selected{{/selected}}>{{label}}</option>
+                        {{/timeframeoptions}}
+                    </select>
+                    <noscript>
+                        <button type="submit" class="btn btn-secondary btn-sm">Update</button>
+                    </noscript>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- UPDATED ORDER: Send, Delivery, Bounce, Open -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">{{#str}}sendrate, local_sesdashboard{{/str}}</h5>
+                    <h2 class="mb-0">{{send_rate}}%</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">{{#str}}deliveryrate, local_sesdashboard{{/str}}</h5>
+                    <h2 class="mb-0">{{delivery_rate}}%</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5 class="card-title">{{#str}}bouncerate, local_sesdashboard{{/str}}</h5>
+                    <h2 class="mb-0">{{bounce_rate}}%</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">{{#str}}openrate, local_sesdashboard{{/str}}</h5>
+                    <h2 class="mb-0">{{open_rate}}%</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Daily Email Activity</h5>
+                    <div class="chart-container">
+                        {{{daily_chart}}}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Email Status Distribution</h5>
+                    <div class="chart-container">
+                        {{{status_chart}}}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

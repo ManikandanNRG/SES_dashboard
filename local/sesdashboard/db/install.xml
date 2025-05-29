@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/sesdashboard/db" VERSION="20240601" COMMENT="SES Dashboard plugin tables">
+  <TABLES>
+    <TABLE NAME="local_sesdashboard_mail" COMMENT="Stores email tracking information for SES Dashboard">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key of the table"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="false" COMMENT="The user ID associated with the email"/>
+        <FIELD NAME="email" TYPE="char" LENGTH="255" NOTNULL="true" COMMENT="The recipient email address"/>
+        <FIELD NAME="subject" TYPE="char" LENGTH="255" NOTNULL="true" COMMENT="The subject line of the email"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" COMMENT="Current status of the email (delivered, bounced, etc.)"/>
+        <FIELD NAME="messageid" TYPE="char" LENGTH="128" NOTNULL="false" COMMENT="The unique message ID from Amazon SES"/>
+        <FIELD NAME="eventtype" TYPE="char" LENGTH="32" NOTNULL="false" COMMENT="Type of event (send, delivery, bounce, complaint)"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" COMMENT="Timestamp of when the record was created"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_idx" UNIQUE="false" FIELDS="userid" COMMENT="Index for faster user-based queries"/>
+        <INDEX NAME="email_idx" UNIQUE="false" FIELDS="email" COMMENT="Index for faster email address searches"/>
+        <INDEX NAME="messageid_idx" UNIQUE="false" FIELDS="messageid" COMMENT="Index for faster message ID lookups"/>
+      </INDEXES>
+    </TABLE>
+    
+    <TABLE NAME="local_sesdashboard_events" COMMENT="Stores detailed SES event information">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key of the table"/>
+        <FIELD NAME="message_id" TYPE="char" LENGTH="128" NOTNULL="true" COMMENT="The unique message ID from Amazon SES"/>
+        <FIELD NAME="event_type" TYPE="char" LENGTH="32" NOTNULL="true" COMMENT="Type of event (Send, Delivery, Open, Click, etc.)"/>
+        <FIELD NAME="timestamp" TYPE="int" LENGTH="10" NOTNULL="true" COMMENT="Timestamp of when the event occurred"/>
+        <FIELD NAME="source" TYPE="char" LENGTH="255" NOTNULL="true" COMMENT="Source email address"/>
+        <FIELD NAME="destination" TYPE="text" NOTNULL="true" COMMENT="Destination email address(es)"/>
+        <FIELD NAME="subject" TYPE="char" LENGTH="255" NOTNULL="true" COMMENT="Email subject"/>
+        
+        <!-- Common fields for delivery events -->
+        <FIELD NAME="processing_time" TYPE="int" LENGTH="10" NOTNULL="false" COMMENT="Processing time in milliseconds for delivery"/>
+        <FIELD NAME="smtp_response" TYPE="text" NOTNULL="false" COMMENT="SMTP response from receiving server"/>
+        <FIELD NAME="remote_mta_ip" TYPE="char" LENGTH="45" NOTNULL="false" COMMENT="Remote MTA IP address"/>
+        <FIELD NAME="reporting_mta" TYPE="char" LENGTH="255" NOTNULL="false" COMMENT="Reporting MTA information"/>
+        
+        <!-- Fields for tracking events -->
+        <FIELD NAME="user_agent" TYPE="char" LENGTH="255" NOTNULL="false" COMMENT="User agent for open/click events"/>
+        <FIELD NAME="ip_address" TYPE="char" LENGTH="45" NOTNULL="false" COMMENT="IP address for open/click events"/>
+        <FIELD NAME="link" TYPE="text" NOTNULL="false" COMMENT="Clicked link URL"/>
+        
+        <!-- Fields for bounce events -->
+        <FIELD NAME="bounce_type" TYPE="char" LENGTH="32" NOTNULL="false" COMMENT="Type of bounce"/>
+        <FIELD NAME="bounce_subtype" TYPE="char" LENGTH="32" NOTNULL="false" COMMENT="Subtype of bounce"/>
+        <FIELD NAME="diagnostic_code" TYPE="text" NOTNULL="false" COMMENT="Bounce diagnostic code"/>
+        
+        <!-- Fields for complaint events -->
+        <FIELD NAME="complaint_feedback_type" TYPE="char" LENGTH="32" NOTNULL="false" COMMENT="Type of complaint feedback"/>
+        <FIELD NAME="feedback_id" TYPE="char" LENGTH="255" NOTNULL="false" COMMENT="Feedback ID for complaints"/>
+        
+        <!-- Fields for delay events -->
+        <FIELD NAME="delay_type" TYPE="char" LENGTH="32" NOTNULL="false" COMMENT="Type of delivery delay"/>
+        <FIELD NAME="delay_duration" TYPE="char" LENGTH="32" NOTNULL="false" COMMENT="Duration of delivery delay"/>
+        
+        <!-- Fields for reject/rendering failure events -->
+        <FIELD NAME="reason" TYPE="text" NOTNULL="false" COMMENT="Reason for rejection"/>
+        <FIELD NAME="error_message" TYPE="text" NOTNULL="false" COMMENT="Error message for rendering failures"/>
+        <FIELD NAME="template_name" TYPE="char" LENGTH="255" NOTNULL="false" COMMENT="Template name for rendering failures"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="messageid_idx" UNIQUE="false" FIELDS="message_id" COMMENT="Index for faster message lookups"/>
+        <INDEX NAME="eventtype_idx" UNIQUE="false" FIELDS="event_type" COMMENT="Index for event type filtering"/>
+        <INDEX NAME="timestamp_idx" UNIQUE="false" FIELDS="timestamp" COMMENT="Index for time-based queries"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>

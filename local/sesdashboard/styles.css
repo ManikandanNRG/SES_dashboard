@@ -1,0 +1,249 @@
+/* Page layout structure */
+#page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+#page-content {
+    flex: 1;
+    background: #fff;
+    overflow-y: auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 60px; /* Add space for footer */
+}
+
+#page-footer {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+    background: #6d1f1f;
+    width: 100%;
+}
+
+/* Main dashboard container */
+.ses-dashboard {
+    padding: 20px;
+    background: #fff;
+    width: 100%;
+    flex: 1;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: auto; /* Ensure content doesn't push into footer */
+}
+
+/* Chart containers */
+.chart-container {
+    background: #fff;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    position: relative;
+    min-height: 350px; /* Add reasonable minimum height for proper display */
+    overflow: visible;
+}
+
+/* Chart wrapper inside container - natural sizing */
+.chart-container > div {
+    position: relative;
+    width: 100%;
+    min-height: 300px; /* Ensure adequate space for chart rendering */
+}
+
+/* Chart canvas styling - minimal constraints for natural sizing */
+.chart-container canvas {
+    width: 100% !important;
+    height: auto !important;
+}
+
+/* Chart data table button positioning - moved to bottom left */
+.chart-container .chart-table-toggle {
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    z-index: 10;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.chart-container .chart-table-toggle:hover {
+    background-color: #0056b3;
+    transform: translateY(-1px);
+}
+
+/* Chart data table styling - neat appearance below chart */
+.chart-container .chart-table {
+    margin-top: 20px;
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.chart-container .chart-table thead {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    color: white;
+}
+
+.chart-container .chart-table thead th {
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+    border: none;
+}
+
+.chart-container .chart-table tbody tr {
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s ease;
+}
+
+/* Alternating row colors for better readability */
+.chart-container .chart-table tbody tr:nth-child(even) {
+    background-color: #f8f9fc;
+}
+
+.chart-container .chart-table tbody tr:nth-child(odd) {
+    background-color: #ffffff;
+}
+
+.chart-container .chart-table tbody tr:hover {
+    background-color: #e3f2fd;
+    transform: scale(1.01);
+}
+
+.chart-container .chart-table tbody td {
+    padding: 10px 15px;
+    font-size: 13px;
+    color: #5a5c69;
+    border: none;
+}
+
+/* Make table responsive on smaller screens */
+@media (max-width: 768px) {
+    .chart-container .chart-table {
+        font-size: 12px;
+    }
+    
+    .chart-container .chart-table thead th,
+    .chart-container .chart-table tbody td {
+        padding: 8px 10px;
+    }
+}
+
+/* Ensure chart titles don't affect height */
+.chart-container .card-title {
+    margin-bottom: 15px;
+    flex-shrink: 0;
+}
+
+/* Last chart container */
+.chart-container:last-child {
+    margin-bottom: 0; /* Remove margin from last chart */
+}
+
+/* Ensure equal height for chart cards */
+.row .card {
+    height: 100%;
+}
+
+.row .card .card-body {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Button visibility fix */
+.chart-container button,
+.ses-dashboard button {
+    position: relative;
+    z-index: 100;
+    display: inline-block;
+}
+
+/* Table container */
+.ses-dashboard .table-responsive {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    position: relative;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+/* Keep existing styles */
+.ses-dashboard table {
+    width: 100%;
+    margin: 0;
+}
+
+/* Canvas styling is now handled in .chart-container canvas above */
+
+/* Keep existing card and gradient styles */
+.ses-dashboard .card:hover {
+    transform: translateY(-5px);
+}
+
+.ses-dashboard .card-title {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.ses-dashboard .bg-primary {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+}
+
+.ses-dashboard .bg-success {
+    background: linear-gradient(45deg, #1cc88a, #13855c);
+}
+
+.ses-dashboard .bg-info {
+    background: linear-gradient(45deg, #36b9cc, #258391);
+}
+
+.ses-dashboard .bg-warning {
+    background: linear-gradient(45deg, #f6c23e, #dda20a);
+}
+
+.timeframe-selector {
+    width: 200px;
+}
+
+/* Add proper spacing between icons and text */
+.fa {
+    margin-right: 6px;
+}
+
+/* Icon spacing for buttons */
+.btn .fa {
+    margin-right: 8px;
+}
+
+/* Icon spacing in table headers */
+th .fa {
+    margin-right: 6px;
+}
+
+/* Icon spacing in definition lists */
+dt .fa {
+    margin-right: 6px;
+}
+
+/* Icon spacing in alerts and form labels */
+.alert .fa,
+label .fa {
+    margin-right: 6px;
+}

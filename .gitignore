@@ -1,0 +1,66 @@
+# Moodle specific files
+config.php
+/dataroot/
+/moodledata/
+/cache/
+/temp/
+/sessions/
+/lang/*/help/
+/lang/*/docs/
+
+# Log files
+*.log
+/logs/
+/local/sesdashboard/logs/
+*_logs/
+sesdashboard_logs/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Temporary files
+*.tmp
+*.temp
+
+# Node modules (if any)
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Database dumps
+*.sql
+*.dump
+
+# Compiled files
+*.class
+*.jar
+
+# Package files
+*.zip
+*.tar.gz
+*.rar
+
+# Custom logs specific to SES Dashboard
+debug_startup_*.log
+dashboard_*.log 
