@@ -1,6 +1,13 @@
 <?php
 require_once(dirname(dirname(dirname(dirname(__FILE__)))) . '/config.php');
 
+// SECURITY FIX: Add proper authentication and capability checks
+require_login();
+
+// Check if user has SES dashboard view capability
+$context = context_system::instance();
+require_capability('local/sesdashboard:view', $context);
+
 // Add logging
 \local_sesdashboard\util\logger::init();
 \local_sesdashboard\util\logger::info('Report page accessed');

@@ -76,3 +76,13 @@ $string['emailnotfound'] = 'Email not found';
 
 // Task strings
 $string['cleanup_old_data_task'] = 'Clean up old SES email data (7+ days)';
+
+// Security and capabilities
+$string['sesdashboard:view'] = 'View SES Dashboard';
+$string['sesdashboard:manage'] = 'Manage SES Dashboard';
+$string['nopermissions'] = 'You do not have permission to access the SES Dashboard';
+$string['accessdenied'] = 'Access denied - login required';
+
+// Data validation
+$string['datainconsistency'] = 'Data inconsistency detected in email statistics';
+$string['debugmode'] = 'Debug mode enabled for troubleshooting';

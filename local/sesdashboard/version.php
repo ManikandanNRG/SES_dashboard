@@ -1,11 +1,11 @@
 <?php
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2024060101;        // Plugin version
-$plugin->requires  = 2022041900;        // Moodle 4.2 minimum (includes core_chart support)
 $plugin->component = 'local_sesdashboard';
-$plugin->maturity  = MATURITY_STABLE;    // STABLE for production use
-$plugin->release   = '1.2.0';           // Semantic versioning
+$plugin->version = 2024120505;        // Plugin version - added log file cleanup
+$plugin->requires = 2022112801;        // Moodle 4.2 minimum (includes core_chart support)
+$plugin->maturity = MATURITY_STABLE;    // STABLE for production use
+$plugin->release = 'v1.2.2';           // Human readable version number
 
 // No dependencies needed - core_chart is part of Moodle core since 3.2
 

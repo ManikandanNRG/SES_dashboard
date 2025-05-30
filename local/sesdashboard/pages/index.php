@@ -1,10 +1,17 @@
 <?php
 
 // Add a very early log attempt to see if the script starts
-@error_log("SES Dashboard index.php script started.\n", 3, $CFG->dataroot . '/sesdashboard_logs/debug_startup_' . date('Y-m-d') . '.log');
-
 require_once(dirname(dirname(dirname(dirname(__FILE__)))) . '/config.php');
 require_once($CFG->libdir . '/adminlib.php');
+
+// SECURITY FIX: Add proper authentication and capability checks
+require_login();
+
+// Check if user has SES dashboard view capability
+$context = context_system::instance();
+require_capability('local/sesdashboard:view', $context);
+
+@error_log("SES Dashboard index.php script started.\n", 3, $CFG->dataroot . '/sesdashboard_logs/debug_startup_' . date('Y-m-d') . '.log');
 
 // Custom logging function
 function log_ses_dashboard($message) {
@@ -40,33 +47,51 @@ try {
     $stats = $repository->get_dashboard_stats($timeframe);
     $daily_stats = $repository->get_daily_stats($timeframe);
     
-    // Calculate rates - UPDATED ORDER: Send, Delivery, Bounce, Open
+    // Debug logging to understand data inconsistency
+    log_ses_dashboard("Raw stats data: " . json_encode($stats));
+    
+    // Calculate counts - UPDATED ORDER: Send, Delivery, Bounce, Open
     $send_count = isset($stats['Send']) ? $stats['Send']->count : 0;
     $delivery_count = isset($stats['Delivery']) ? $stats['Delivery']->count : 0;
     $bounce_count = isset($stats['Bounce']) ? $stats['Bounce']->count : 0;
     $open_count = isset($stats['Open']) ? $stats['Open']->count : 0;
     
-    // Fix percentage calculation logic
-    // For email metrics, we should calculate rates based on the appropriate base:
-    // - Send rate: Always 100% if we have any data (since we track what we send)
-    // - Delivery rate: Delivered / Sent
-    // - Bounce rate: Bounced / Sent  
-    // - Open rate: Opened / Delivered (opens can only happen on delivered emails)
+    log_ses_dashboard("Calculated counts - Send: $send_count, Delivery: $delivery_count, Bounce: $bounce_count, Open: $open_count");
     
-    if ($send_count > 0) {
-        $total_sent = $send_count;
-        $send_rate = 100; // If we have send data, send rate is 100%
-        $delivery_rate = round(($delivery_count / $total_sent) * 100);
-        $bounce_rate = round(($bounce_count / $total_sent) * 100);
-        // Open rate should be based on delivered emails, not sent emails
+    // IMPROVED CALCULATION LOGIC
+    // In SES, emails can have the following flow:
+    // 1. Send -> Delivery -> (possibly) Open
+    // 2. Send -> Bounce (failed delivery)
+    // 3. Some emails might have multiple status records
+    
+    // The total emails attempted is the base for calculations
+    $total_emails = $send_count;
+    
+    if ($total_emails > 0) {
+        $send_rate = 100; // If we track it, 100% was sent
+        
+        // Delivery rate: successful deliveries out of total sent
+        $delivery_rate = round(($delivery_count / $total_emails) * 100);
+        
+        // Bounce rate: failed deliveries out of total sent  
+        $bounce_rate = round(($bounce_count / $total_emails) * 100);
+        
+        // Open rate: opens out of successfully delivered emails
         $open_rate = $delivery_count > 0 ? round(($open_count / $delivery_count) * 100) : 0;
+        
+        // Data validation check
+        if (($delivery_count + $bounce_count) > $total_emails) {
+            log_ses_dashboard("WARNING: Data inconsistency detected! Delivery ($delivery_count) + Bounce ($bounce_count) = " . 
+                            ($delivery_count + $bounce_count) . " > Total sent ($total_emails)");
+        }
+        
     } else {
-        // Fallback if no send data - use delivery as base
-        $total_base = max($delivery_count, 1); // Prevent division by zero
+        // No send data, fallback to delivery-based calculations
+        $total_emails = max($delivery_count + $bounce_count, 1);
         $send_rate = 0;
-        $delivery_rate = 100; // If we only have delivery data, that's 100%
-        $bounce_rate = round(($bounce_count / $total_base) * 100);
-        $open_rate = round(($open_count / $total_base) * 100);
+        $delivery_rate = $total_emails > 0 ? round(($delivery_count / $total_emails) * 100) : 0;
+        $bounce_rate = $total_emails > 0 ? round(($bounce_count / $total_emails) * 100) : 0;
+        $open_rate = $delivery_count > 0 ? round(($open_count / $delivery_count) * 100) : 0;
     }
     
     // Ensure no rate exceeds 100%

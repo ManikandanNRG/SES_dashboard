@@ -88,10 +88,10 @@ class email_repository {
         debugging('Time start: ' . date('Y-m-d H:i:s', $timestart), DEBUG_NORMAL);
     
         try {
-            // Get total counts
+            // Get total records for debugging
             $total = $DB->count_records_select('local_sesdashboard_mail', 
                 'timecreated >= ?', [$timestart]);
-            debugging('Total records: ' . $total, DEBUG_NORMAL);
+            debugging('Total records in timeframe: ' . $total, DEBUG_NORMAL);
                 
             // Get counts by status
             $sql = "SELECT status, COUNT(*) as count 
@@ -100,6 +100,28 @@ class email_repository {
                     GROUP BY status";
             $stats = $DB->get_records_sql($sql, [$timestart]);
             debugging('Status stats: ' . json_encode($stats), DEBUG_NORMAL);
+            
+            // Additional debugging - check for potential duplicates
+            $sql_unique_emails = "SELECT COUNT(DISTINCT email) as unique_emails, 
+                                         COUNT(DISTINCT messageid) as unique_messageids,
+                                         COUNT(*) as total_records
+                                  FROM {local_sesdashboard_mail} 
+                                  WHERE timecreated >= ?";
+            $unique_stats = $DB->get_record_sql($sql_unique_emails, [$timestart]);
+            debugging('Unique stats: ' . json_encode($unique_stats), DEBUG_NORMAL);
+            
+            // Check for emails with multiple statuses
+            $sql_multiple_status = "SELECT email, messageid, COUNT(DISTINCT status) as status_count, 
+                                           GROUP_CONCAT(DISTINCT status) as statuses
+                                    FROM {local_sesdashboard_mail} 
+                                    WHERE timecreated >= ? 
+                                    GROUP BY email, messageid 
+                                    HAVING COUNT(DISTINCT status) > 1
+                                    LIMIT 5";
+            $multiple_status = $DB->get_records_sql($sql_multiple_status, [$timestart]);
+            if (!empty($multiple_status)) {
+                debugging('Emails with multiple statuses found: ' . json_encode($multiple_status), DEBUG_NORMAL);
+            }
             
             // Return the processed stats
             return $stats;
