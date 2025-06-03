@@ -18,6 +18,25 @@ $PAGE->set_url(new moodle_url('/local/sesdashboard/pages/report.php'));
 $PAGE->set_title(get_string('emailreport', 'local_sesdashboard'));
 $PAGE->set_heading(get_string('emailreport', 'local_sesdashboard'));
 
+// Get filter parameters early so they're available throughout the script
+$page = optional_param('page', 0, PARAM_INT);
+$perpage = optional_param('perpage', 50, PARAM_INT);
+$status = optional_param('status', '', PARAM_ALPHA);
+$from = optional_param('from', '', PARAM_TEXT);
+$to = optional_param('to', '', PARAM_TEXT);
+
+// Handle search parameter more carefully - URL decode and handle + characters
+$search_raw = optional_param('search', '', PARAM_RAW);
+if (empty($search_raw)) {
+    // Try getting from $_GET directly in case of encoding issues
+    $search_raw = isset($_GET['search']) ? $_GET['search'] : '';
+}
+$search = clean_param($search_raw, PARAM_TEXT);
+$search = trim($search);
+
+// DEBUG: Log filter parameters
+\local_sesdashboard\util\logger::info('Filter parameters - Page: ' . $page . ', Status: ' . $status . ', Search: ' . $search . ', From: ' . $from . ', To: ' . $to);
+
 // Get action parameter
 $action = optional_param('action', '', PARAM_ALPHA);
 $email_id = optional_param('id', 0, PARAM_INT);
@@ -55,11 +74,24 @@ if ($action === 'view' && $email_id > 0) {
                 $email_details->status_description = '<strong>Status:</strong> ' . $email_details->status;
         }
         
+        // Build back URL with preserved filters
+        $back_params = [
+            'status' => $status,
+            'search' => $search,
+            'from' => $from,
+            'to' => $to,
+            'page' => $page
+        ];
+        if ($perpage != 50) {
+            $back_params['perpage'] = $perpage;
+        }
+        $back_url = new moodle_url('/local/sesdashboard/pages/report.php', $back_params);
+        
         // Prepare email details data
         $details_data = [
             'email' => $email_details,
             'formatted_date' => userdate($email_details->timecreated),
-            'back_url' => new moodle_url('/local/sesdashboard/pages/report.php')
+            'back_url' => $back_url
         ];
         
         // Add navigation
@@ -72,19 +104,21 @@ if ($action === 'view' && $email_id > 0) {
         echo $OUTPUT->footer();
         exit;
     } else {
-        // Email not found, redirect back to report
-        redirect(new moodle_url('/local/sesdashboard/pages/report.php'), 
+        // Email not found, redirect back to report with preserved filters
+        $back_params = [
+            'status' => $status,
+            'search' => $search,
+            'from' => $from,
+            'to' => $to,
+            'page' => $page
+        ];
+        if ($perpage != 50) {
+            $back_params['perpage'] = $perpage;
+        }
+        redirect(new moodle_url('/local/sesdashboard/pages/report.php', $back_params), 
                 get_string('emailnotfound', 'local_sesdashboard'), null, \core\output\notification::NOTIFY_ERROR);
     }
 }
-
-// Get filter parameters
-$page = optional_param('page', 0, PARAM_INT);
-$perpage = optional_param('perpage', 50, PARAM_INT);
-$status = optional_param('status', '', PARAM_ALPHA);
-$from = optional_param('from', '', PARAM_TEXT);
-$to = optional_param('to', '', PARAM_TEXT);
-$search = optional_param('search', '', PARAM_TEXT);
 
 $baseurl = new moodle_url('/local/sesdashboard/pages/report.php');
 
@@ -136,20 +170,34 @@ $totalpages = ceil($total / $perpage);
 $pagination_data = [];
 
 if ($totalpages > 1) {
-    // Build pagination URLs with current filters
+    // Build pagination URLs with current filters - FIXED: only include non-empty filter parameters
     $filter_params = [];
-    if ($status) $filter_params['status'] = $status;
-    if ($from) $filter_params['from'] = $from;
-    if ($to) $filter_params['to'] = $to;
-    if ($search) $filter_params['search'] = $search;
-    if ($perpage != 50) $filter_params['perpage'] = $perpage;
+    
+    // Only add filter parameters if they have values
+    if (!empty($status)) {
+        $filter_params['status'] = $status;
+    }
+    if (!empty($search)) {
+        $filter_params['search'] = $search;
+    }
+    if (!empty($from)) {
+        $filter_params['from'] = $from;
+    }
+    if (!empty($to)) {
+        $filter_params['to'] = $to;
+    }
+    
+    // Only include perpage if it's different from default
+    if ($perpage != 50) {
+        $filter_params['perpage'] = $perpage;
+    }
 
     // Previous page
     if ($page > 0) {
         $prev_params = $filter_params;
         $prev_params['page'] = $page - 1;
         $pagination_data['previous'] = [
-            'url' => new moodle_url($baseurl, $prev_params),
+            'url' => (new moodle_url($baseurl, $prev_params))->out(false),
             'text' => '« Previous'
         ];
     }
@@ -164,7 +212,7 @@ if ($totalpages > 1) {
         $page_params['page'] = $i;
         $pagination_data['pages'][] = [
             'number' => $i + 1,
-            'url' => new moodle_url($baseurl, $page_params),
+            'url' => (new moodle_url($baseurl, $page_params))->out(false),
             'active' => ($i == $page)
         ];
     }
@@ -174,7 +222,7 @@ if ($totalpages > 1) {
         $next_params = $filter_params;
         $next_params['page'] = $page + 1;
         $pagination_data['next'] = [
-            'url' => new moodle_url($baseurl, $next_params),
+            'url' => (new moodle_url($baseurl, $next_params))->out(false),
             'text' => 'Next »'
         ];
     }
@@ -187,6 +235,18 @@ if ($totalpages > 1) {
         'start_record' => ($page * $perpage) + 1,
         'end_record' => min(($page + 1) * $perpage, $total)
     ];
+    
+    // DEBUG: Log pagination URLs
+    \local_sesdashboard\util\logger::info('Pagination filter params: ' . json_encode($filter_params));
+    if (isset($pagination_data['next'])) {
+        \local_sesdashboard\util\logger::info('Next page URL: ' . $pagination_data['next']['url']);
+    }
+    if (isset($pagination_data['pages']) && count($pagination_data['pages']) > 0) {
+        \local_sesdashboard\util\logger::info('First page URL: ' . $pagination_data['pages'][0]['url']);
+        if (count($pagination_data['pages']) > 1) {
+            \local_sesdashboard\util\logger::info('Second page URL: ' . $pagination_data['pages'][1]['url']);
+        }
+    }
 }
 
 // Setup data for template
@@ -197,6 +257,8 @@ $data = [
     'filters' => [
         'status' => $status,
         'search' => $search,
+        'from' => $from,
+        'to' => $to,
         'status_send' => ($status === 'Send'),
         'status_delivery' => ($status === 'Delivery'), 
         'status_open' => ($status === 'Open'),
@@ -205,8 +267,29 @@ $data = [
     ],
     'filters_json' => json_encode([
         'status' => $status,
-        'search' => $search
+        'search' => $search,
+        'from' => $from,
+        'to' => $to
     ]),
+    // Add current filter parameters for view details URLs
+    'current_filters' => [
+        'status' => $status,
+        'search' => $search,
+        'from' => $from,
+        'to' => $to,
+        'page' => $page,
+        'perpage' => $perpage
+    ],
+    'current_filters_query' => http_build_query(array_filter([
+        'status' => $status,
+        'search' => $search,
+        'from' => $from,
+        'to' => $to,
+        'page' => $page,
+        'perpage' => ($perpage != 50) ? $perpage : null
+    ], function($value) {
+        return $value !== '' && $value !== null;
+    })),
     'downloadurl' => new moodle_url('/local/sesdashboard/pages/download.php'),
     'dashboard_url' => new moodle_url('/local/sesdashboard/pages/index.php'),
     'has_results' => !empty($emails_array),
@@ -218,6 +301,11 @@ $PAGE->navbar->add(get_string('dashboard', 'local_sesdashboard'), new moodle_url
 $PAGE->navbar->add(get_string('emailreport', 'local_sesdashboard'));
 
 \local_sesdashboard\util\logger::info('Rendering report template');
+
+// DEBUG: Log template data for pagination
+\local_sesdashboard\util\logger::info('Template pagination data: ' . json_encode($data['pagination']));
+\local_sesdashboard\util\logger::info('Template filters data: ' . json_encode($data['filters']));
+
 echo $OUTPUT->header();
 echo $OUTPUT->render_from_template('local_sesdashboard/report', $data);
 echo $OUTPUT->footer();
