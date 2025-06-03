@@ -17,18 +17,25 @@ class email_repository {
     }
 
     /**
-     * Get filtered emails with pagination
+     * Get filtered emails with pagination - OPTIMIZED VERSION
      */
     public function get_filtered_emails($start = 0, $limit = 50, $status = '', $from = '', $to = '', $search = '') {
         global $DB;
-
+        
         list($where, $params) = $this->get_filter_sql($status, $from, $to, $search);
-        $sql = "SELECT * FROM {{$this->table}} " . $where . " ORDER BY timecreated DESC";
+        
+        // OPTIMIZATION: Use specific field selection instead of *
+        $sql = "SELECT id, email, subject, status, messageid, eventtype, timecreated 
+                FROM {local_sesdashboard_mail} $where 
+                ORDER BY timecreated DESC";
         
         if ($limit > 0) {
-            return $DB->get_records_sql($sql, $params, $start, $limit);
+            $results = $DB->get_records_sql($sql, $params, $start, $limit);
+        } else {
+            $results = $DB->get_records_sql($sql, $params);
         }
-        return $DB->get_records_sql($sql, $params);
+        
+        return $results;
     }
 
     /**
@@ -77,165 +84,117 @@ class email_repository {
     }
 
     /**
-     * Get email statistics for dashboard
+     * OPTIMIZED: Get dashboard stats with better performance
      */
     public function get_dashboard_stats($timeframe = 7) {
         global $DB;
     
-        debugging('Starting get_dashboard_stats with timeframe: ' . $timeframe, DEBUG_NORMAL);
-    
         $timestart = time() - ($timeframe * DAYSECS);
-        debugging('Time start: ' . date('Y-m-d H:i:s', $timestart), DEBUG_NORMAL);
     
         try {
-            // Get total records for debugging
-            $total = $DB->count_records_select('local_sesdashboard_mail', 
-                'timecreated >= ?', [$timestart]);
-            debugging('Total records in timeframe: ' . $total, DEBUG_NORMAL);
-                
-            // Get counts by status
+            // OPTIMIZATION: Use more efficient query with indexing
             $sql = "SELECT status, COUNT(*) as count 
                     FROM {local_sesdashboard_mail} 
                     WHERE timecreated >= ? 
-                    GROUP BY status";
+                    GROUP BY status 
+                    ORDER BY status";
             $stats = $DB->get_records_sql($sql, [$timestart]);
-            debugging('Status stats: ' . json_encode($stats), DEBUG_NORMAL);
             
-            // Additional debugging - check for potential duplicates
-            $sql_unique_emails = "SELECT COUNT(DISTINCT email) as unique_emails, 
-                                         COUNT(DISTINCT messageid) as unique_messageids,
-                                         COUNT(*) as total_records
-                                  FROM {local_sesdashboard_mail} 
-                                  WHERE timecreated >= ?";
-            $unique_stats = $DB->get_record_sql($sql_unique_emails, [$timestart]);
-            debugging('Unique stats: ' . json_encode($unique_stats), DEBUG_NORMAL);
-            
-            // Check for emails with multiple statuses
-            $sql_multiple_status = "SELECT email, messageid, COUNT(DISTINCT status) as status_count, 
-                                           GROUP_CONCAT(DISTINCT status) as statuses
-                                    FROM {local_sesdashboard_mail} 
-                                    WHERE timecreated >= ? 
-                                    GROUP BY email, messageid 
-                                    HAVING COUNT(DISTINCT status) > 1
-                                    LIMIT 5";
-            $multiple_status = $DB->get_records_sql($sql_multiple_status, [$timestart]);
-            if (!empty($multiple_status)) {
-                debugging('Emails with multiple statuses found: ' . json_encode($multiple_status), DEBUG_NORMAL);
-            }
-            
-            // Return the processed stats
             return $stats;
             
         } catch (Exception $e) {
-            debugging('Error in get_dashboard_stats: ' . $e->getMessage(), DEBUG_NORMAL);
             throw $e;
         }
     }
 
     /**
-     * Get daily email statistics
+     * OPTIMIZED: Get daily stats with better memory usage
      */
     public function get_daily_stats($days = 7) {
         global $DB;
         
-        // Debug the input
-        debugging('Starting get_daily_stats with days: ' . $days, DEBUG_NORMAL);
-        
-        // Calculate the start time (beginning of day, days ago)
         $timestart = strtotime(date('Y-m-d 00:00:00')) - ($days - 1) * 86400;
-        debugging('Time start: ' . date('Y-m-d H:i:s', $timestart) . ' (' . $timestart . ')', DEBUG_NORMAL);
         
-        // Pre-generate all dates in the range to ensure we have data for each day
+        // Pre-generate all dates
         $dates_array = [];
-        $delivered_array = [];
-        $opened_array = [];
-        $sent_array = []; // Changed from clicked_array
-        $bounced_array = [];
+        $data_arrays = ['delivered' => [], 'opened' => [], 'sent' => [], 'bounced' => []];
         
         for ($i = 0; $i < $days; $i++) {
             $date = date('Y-m-d', $timestart + ($i * 86400));
             $dates_array[] = $date;
-            $delivered_array[] = 0;
-            $opened_array[] = 0;
-            $sent_array[] = 0; // Changed from clicked_array
-            $bounced_array[] = 0;
+            foreach ($data_arrays as $key => &$array) {
+                $array[] = 0;
+            }
         }
-        debugging('Generated dates: ' . json_encode($dates_array), DEBUG_NORMAL);
         
-        // Debug raw data in the date range
-        $raw_data_sql = "SELECT id, timecreated, status FROM {local_sesdashboard_mail} WHERE timecreated >= ? ORDER BY timecreated ASC LIMIT 20";
-        $raw_results = $DB->get_records_sql($raw_data_sql, [$timestart]);
+        // OPTIMIZATION: Single query instead of processing all records in PHP
+        $sql = "SELECT DATE(FROM_UNIXTIME(timecreated)) as date_str, status, COUNT(*) as count
+                FROM {local_sesdashboard_mail} 
+                WHERE timecreated >= ? 
+                GROUP BY DATE(FROM_UNIXTIME(timecreated)), status
+                ORDER BY date_str ASC";
         
-        // Log the raw data with formatted dates for debugging
-        $formatted_results = [];
-        foreach ($raw_results as $record) {
-            $formatted_results[] = [
-                'id' => $record->id,
-                'timecreated' => $record->timecreated,
-                'formatted_date' => date('Y-m-d', $record->timecreated),
-                'status' => $record->status
-            ];
-        }
-        debugging('Raw data sample with formatted dates: ' . json_encode($formatted_results), DEBUG_NORMAL);
-        
-        // Try a PHP-based approach instead of relying on MySQL's FROM_UNIXTIME
         try {
-            // Get all records in the date range
-            $sql = "SELECT id, timecreated, status FROM {local_sesdashboard_mail} WHERE timecreated >= ?";
-            $all_records = $DB->get_records_sql($sql, [$timestart]);
-            debugging('Total records retrieved: ' . count($all_records), DEBUG_NORMAL);
+            $results = $DB->get_records_sql($sql, [$timestart]);
             
-            // Process records in PHP
-            foreach ($all_records as $record) {
-                // Format the date in PHP
-                $date = date('Y-m-d', $record->timecreated);
-                debugging('Processing record: id=' . $record->id . ', date=' . $date . ', status=' . $record->status, DEBUG_NORMAL);
-                
-                // Find the date index
-                $date_index = array_search($date, $dates_array);
-                if ($date_index === false) {
-                    debugging('Date not in range: ' . $date, DEBUG_NORMAL);
-                    continue;
-                }
-                
-                $status = trim($record->status);
-                
-                // Update the appropriate array
-                if ($status === 'Delivery') {
-                    $delivered_array[$date_index]++;
-                } else if ($status === 'Open') {
-                    $opened_array[$date_index]++;
-                } else if ($status === 'Send') { // Changed from 'Click'
-                    $sent_array[$date_index]++;
-                } else if ($status === 'Bounce') {
-                    $bounced_array[$date_index]++;
-                } else {
-                    debugging('Unknown status: ' . $status, DEBUG_NORMAL);
+            foreach ($results as $result) {
+                $date_index = array_search($result->date_str, $dates_array);
+                if ($date_index !== false) {
+                    $status = trim($result->status);
+                    switch ($status) {
+                        case 'Delivery':
+                            $data_arrays['delivered'][$date_index] = (int)$result->count;
+                            break;
+                        case 'Open':
+                            $data_arrays['opened'][$date_index] = (int)$result->count;
+                            break;
+                        case 'Send':
+                            $data_arrays['sent'][$date_index] = (int)$result->count;
+                            break;
+                        case 'Bounce':
+                            $data_arrays['bounced'][$date_index] = (int)$result->count;
+                            break;
+                    }
                 }
             }
             
-            // Build the final data structure
-            $data = [
-                'dates' => $dates_array,
-                'delivered' => $delivered_array,
-                'opened' => $opened_array,
-                'sent' => $sent_array, // Changed from clicked_array
-                'bounced' => $bounced_array
-            ];
-            
-            debugging('Final data: ' . json_encode($data), DEBUG_NORMAL);
-            return $data;
         } catch (Exception $e) {
-            debugging('Error processing records: ' . $e->getMessage(), DEBUG_NORMAL);
-            // Return empty data structure on error
-            return [
-                'dates' => $dates_array,
-                'delivered' => $delivered_array,
-                'opened' => $opened_array,
-                'sent' => $sent_array,
-                'bounced' => $bounced_array
-            ];
+            // Fallback to PHP processing if SQL fails
+            $all_records = $DB->get_records_sql(
+                "SELECT timecreated, status FROM {local_sesdashboard_mail} WHERE timecreated >= ?", 
+                [$timestart]
+            );
+            
+            foreach ($all_records as $record) {
+                $date = date('Y-m-d', $record->timecreated);
+                $date_index = array_search($date, $dates_array);
+                if ($date_index !== false) {
+                    $status = trim($record->status);
+                    switch ($status) {
+                        case 'Delivery':
+                            $data_arrays['delivered'][$date_index]++;
+                            break;
+                        case 'Open':
+                            $data_arrays['opened'][$date_index]++;
+                            break;
+                        case 'Send':
+                            $data_arrays['sent'][$date_index]++;
+                            break;
+                        case 'Bounce':
+                            $data_arrays['bounced'][$date_index]++;
+                            break;
+                    }
+                }
+            }
         }
+        
+        return [
+            'dates' => $dates_array,
+            'delivered' => $data_arrays['delivered'],
+            'opened' => $data_arrays['opened'],
+            'sent' => $data_arrays['sent'],
+            'bounced' => $data_arrays['bounced']
+        ];
     }
 
     /**
