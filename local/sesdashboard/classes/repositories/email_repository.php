@@ -13,7 +13,12 @@ class email_repository {
         global $DB;
         
         list($where, $params) = $this->get_filter_sql($status, $from, $to, $search);
-        return $DB->count_records_sql("SELECT COUNT(*) FROM {{$this->table}} " . $where, $params);
+        
+        $sql = "SELECT COUNT(*) FROM {local_sesdashboard_mail} $where";
+        
+        $count = $DB->count_records_sql($sql, $params);
+        
+        return $count;
     }
 
     /**
@@ -71,15 +76,16 @@ class email_repository {
         }
 
         if ($search) {
-            $where[] = $DB->sql_like('email', ':email', false, false) . 
+            $where[] = '(' . $DB->sql_like('email', ':email', false, false) . 
                       ' OR ' . $DB->sql_like('subject', ':subject', false, false) . 
-                      ' OR ' . $DB->sql_like('messageid', ':messageid', false, false);
+                      ' OR ' . $DB->sql_like('messageid', ':messageid', false, false) . ')';
             $params['email'] = '%' . $search . '%';
             $params['subject'] = '%' . $search . '%';
             $params['messageid'] = '%' . $search . '%';
         }
 
         $whereStr = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+        
         return [$whereStr, $params];
     }
 
@@ -223,8 +229,6 @@ class email_repository {
             $transaction->allow_commit();
             
             // Log cleanup results
-            debugging("SES Dashboard cleanup: Deleted $deleted_mail mail records and $deleted_events event records older than 7 days", DEBUG_NORMAL);
-            
             return [
                 'mail_deleted' => $deleted_mail,
                 'events_deleted' => $deleted_events,
@@ -233,7 +237,6 @@ class email_repository {
             
         } catch (Exception $e) {
             $transaction->rollback($e);
-            debugging('SES Dashboard cleanup failed: ' . $e->getMessage(), DEBUG_NORMAL);
             throw $e;
         }
     }

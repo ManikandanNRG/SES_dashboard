@@ -22,7 +22,7 @@
             
             <div class="form-group mr-3">
                 <label for="search" class="mr-2"><strong>{{#str}}search, local_sesdashboard{{/str}}:</strong></label>
-                <input type="text" name="search" id="search" class="form-control" value="{{filters.search}}" placeholder="{{#str}}searchplaceholder, local_sesdashboard{{/str}}" style="width: 250px;">
+                <input type="text" name="search" id="search" class="form-control" value="{{{filters.search}}}" placeholder="{{#str}}searchplaceholder, local_sesdashboard{{/str}}" style="width: 250px;">
             </div>
             
             <button type="submit" class="btn btn-primary mr-2">
@@ -31,7 +31,7 @@
             <a href="{{baseurl}}" class="btn btn-secondary mr-2">
                 <i class="fa fa-refresh"></i> {{#str}}reset, local_sesdashboard{{/str}}
             </a>
-            <a href="{{downloadurl}}?status={{filters.status}}&search={{filters.search}}" class="btn btn-success" data-filters="{{filters_json}}">
+            <a href="{{downloadurl}}?status={{filters.status}}&search={{filters.search}}&from={{filters.from}}&to={{filters.to}}" class="btn btn-success" data-filters="{{filters_json}}">
                 <i class="fa fa-download"></i> {{#str}}export, local_sesdashboard{{/str}}
             </a>
         </form>
@@ -75,9 +75,16 @@
                         {{{status_badge}}}
                     </td>
                     <td>
+                        {{#current_filters_query}}
+                        <a href="{{baseurl}}?action=view&id={{id}}&{{current_filters_query}}" class="btn btn-sm btn-outline-info">
+                            <i class="fa fa-eye"></i> {{#str}}viewdetails, local_sesdashboard{{/str}}
+                        </a>
+                        {{/current_filters_query}}
+                        {{^current_filters_query}}
                         <a href="{{baseurl}}?action=view&id={{id}}" class="btn btn-sm btn-outline-info">
                             <i class="fa fa-eye"></i> {{#str}}viewdetails, local_sesdashboard{{/str}}
                         </a>
+                        {{/current_filters_query}}
                     </td>
                 </tr>
                 {{/emails}}
