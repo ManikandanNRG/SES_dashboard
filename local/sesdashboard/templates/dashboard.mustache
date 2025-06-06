@@ -18,6 +18,12 @@
                     </noscript>
                 </form>
             </div>
+            
+            <!-- DEBUG: Show timestamp to verify page is refreshing -->
+            <div class="alert alert-info mt-2">
+                <small>Page generated at: <span id="page-timestamp"></span> ({{timeframe}} days)</small>
+                <script>document.getElementById('page-timestamp').textContent = new Date().toLocaleString();</script>
+            </div>
         </div>
     </div>
 

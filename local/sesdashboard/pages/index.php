@@ -34,6 +34,33 @@ $PAGE->set_heading('SES Dashboard');
 
 $PAGE->requires->css('/local/sesdashboard/styles.css');
 
+// FORCE FRESH DATA: Clear caches and set headers
+if (function_exists('purge_all_caches')) {
+    // Don't purge all caches as it's too aggressive
+    // purge_all_caches();
+}
+
+// FIXED: Safe template cache clearing
+try {
+    // Try to clear template cache if available
+    if (class_exists('cache')) {
+        $template_cache = cache::make('core', 'template');
+        if ($template_cache) {
+            $template_cache->purge();
+        }
+    }
+} catch (Exception $e) {
+    // Ignore cache errors - not critical for functionality
+    log_ses_dashboard('Cache clearing failed (not critical): ' . $e->getMessage());
+}
+
+// Set anti-cache headers
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
+
+log_ses_dashboard('=== STARTING FRESH PAGE LOAD ===');
+
 // Get statistics
 try {
     $repository = new \local_sesdashboard\repositories\email_repository();
@@ -115,11 +142,11 @@ try {
         'dates' => $daily_stats['dates'],
         'delivered' => $daily_stats['delivered'],
         'opened' => $daily_stats['opened'],
-        'sent' => $daily_stats['sent'],  // Changed from clicked
+        'sent' => $daily_stats['sent'],
         'bounced' => $daily_stats['bounced'],
         'delivery_rate' => $delivery_rate,
         'open_rate' => $open_rate,
-        'send_rate' => $send_rate,  // Changed from click_rate
+        'send_rate' => $send_rate,
         'bounce_rate' => $bounce_rate
     ];
     
@@ -133,62 +160,16 @@ try {
         'dates' => [],
         'delivered' => [],
         'opened' => [],
-        'sent' => [],  // Changed from clicked
+        'sent' => [],
         'bounced' => [],
         'delivery_rate' => 0,
         'open_rate' => 0,
-        'send_rate' => 0,  // Changed from click_rate
+        'send_rate' => 0,
         'bounce_rate' => 0
     ];
 }
 
-// Prepare data for status distribution chart
-try {
-    log_ses_dashboard('Preparing status distribution data');
-    $status_distribution_data = [
-        'labels' => [],
-        'data' => []
-    ];
-
-    // Assuming $stats contains counts for each status (Delivery, Open, Click, Bounce)
-    // You might need to adjust this based on the actual structure of $stats
-    // Example structure: $stats = ['Delivery' => 100, 'Open' => 50, ...]
-
-    // Let's assume $stats is an object or array where keys are statuses and values are counts
-    // If $stats is an array of objects like [{status: 'Delivery', count: 100}, ...]
-    // you'll need to aggregate it first.
-
-    // Example aggregation if $stats is an array of objects:
-    $aggregated_stats = [];
-    if (is_array($stats)) {
-        foreach ($stats as $stat_item) {
-            if (isset($stat_item->status) && isset($stat_item->count)) {
-                $aggregated_stats[$stat_item->status] = $stat_item->count;
-            }
-        }
-    } else if (is_object($stats)) {
-         // If $stats is already an object like {Delivery: 100, Open: 50}
-         $aggregated_stats = (array) $stats;
-    }
-
-    $valid_statuses = ['Send', 'Delivery', 'Bounce', 'Open'];  // CORRECT ORDER
-
-    foreach ($valid_statuses as $status) {
-        $count = isset($aggregated_stats[$status]) ? $aggregated_stats[$status] : 0;
-        $status_distribution_data['labels'][] = $status;
-        $status_distribution_data['data'][] = $count;
-    }
-
-    log_ses_dashboard('Status distribution data prepared');
-    log_ses_dashboard('Status distribution data: ' . json_encode($status_distribution_data));
-
-} catch (Exception $e) {
-    log_ses_dashboard('Error preparing status distribution data: ' . $e->getMessage());
-     // Ensure $status_distribution_data is defined even on error
-    $status_distribution_data = ['labels' => [], 'data' => []];
-}
-
-// Create charts using Moodle's Core Chart API
+// Create charts using Moodle's Core Chart API - RESTORE ORIGINAL IMPLEMENTATION
 try {
     log_ses_dashboard('Creating charts using Core Chart API');
     
@@ -226,6 +207,9 @@ try {
     
 } catch (Exception $e) {
     log_ses_dashboard('Error creating charts: ' . $e->getMessage());
+    // Fallback to simple text display if charts fail
+    $daily_chart = null;
+    $status_chart = null;
 }
 
 // Update template context
@@ -242,9 +226,25 @@ $template_context = [
         ['value' => 5, 'label' => get_string('last5days', 'local_sesdashboard'), 'selected' => ($timeframe == 5)],
         ['value' => 7, 'label' => get_string('last7days', 'local_sesdashboard'), 'selected' => ($timeframe == 7)],
     ],
-    'daily_chart' => $OUTPUT->render($daily_chart),
-    'status_chart' => $OUTPUT->render($status_chart)
+    'daily_chart' => $daily_chart ? $OUTPUT->render($daily_chart) : '<div class="alert alert-info">Chart not available</div>',
+    'status_chart' => $status_chart ? $OUTPUT->render($status_chart) : '<div class="alert alert-info">Chart not available</div>'
 ];
+
+// DEBUG: Log what data is being passed to template
+log_ses_dashboard('=== TEMPLATE CONTEXT DEBUG ===');
+log_ses_dashboard('Send Rate: ' . $send_rate . '%');
+log_ses_dashboard('Delivery Rate: ' . $delivery_rate . '%');
+log_ses_dashboard('Bounce Rate: ' . $bounce_rate . '%');
+log_ses_dashboard('Open Rate: ' . $open_rate . '%');
+log_ses_dashboard('Timeframe: ' . $timeframe);
+
+// DEBUG: Log the daily_stats data that should be in the chart
+log_ses_dashboard('Daily Stats being used for charts:');
+log_ses_dashboard('Dates: ' . json_encode($daily_stats['dates']));
+log_ses_dashboard('Sent data: ' . json_encode($daily_stats['sent']));
+log_ses_dashboard('Delivered data: ' . json_encode($daily_stats['delivered']));
+log_ses_dashboard('Bounced data: ' . json_encode($daily_stats['bounced']));
+log_ses_dashboard('Opened data: ' . json_encode($daily_stats['opened']));
 
 // Add logging for template context
 log_ses_dashboard('Template context - report_url: ' . $template_context['report_url']);
@@ -262,8 +262,6 @@ try {
     
     // Log before template render
     log_ses_dashboard('About to render dashboard template');
-    // Remove this line as it's causing the error
-    // log_ses_dashboard('AMD module paths: ' . json_encode($PAGE->requires->get_included_amd_modules()));
     $rendered_content = $OUTPUT->render_from_template('local_sesdashboard/dashboard', $template_context);
     log_ses_dashboard('Template rendered successfully');
     

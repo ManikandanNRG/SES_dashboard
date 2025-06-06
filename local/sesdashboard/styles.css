@@ -54,6 +54,158 @@
     min-height: 300px; /* Ensure adequate space for chart rendering */
 }
 
+/* Simple HTML Line Chart Styles */
+.simple-line-chart {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.chart-legend {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    color: #333;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    margin-right: 6px;
+    display: inline-block;
+}
+
+.chart-area {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    height: 250px;
+    border-bottom: 2px solid #e0e0e0;
+    border-left: 2px solid #e0e0e0;
+    padding: 10px;
+    position: relative;
+}
+
+.chart-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    margin: 0 2px;
+}
+
+.chart-bars {
+    display: flex;
+    align-items: flex-end;
+    height: 220px;
+    gap: 1px;
+}
+
+.chart-bar {
+    width: 8px;
+    min-height: 2px;
+    border-radius: 2px 2px 0 0;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.chart-bar:hover {
+    opacity: 0.8;
+    transform: scaleY(1.05);
+}
+
+.chart-bar.sent {
+    background-color: #007bff;
+}
+
+.chart-bar.delivered {
+    background-color: #28a745;
+}
+
+.chart-bar.bounced {
+    background-color: #dc3545;
+}
+
+.chart-bar.opened {
+    background-color: #ffc107;
+}
+
+.chart-date {
+    font-size: 11px;
+    color: #666;
+    margin-top: 8px;
+    transform: rotate(-45deg);
+    white-space: nowrap;
+}
+
+/* Simple HTML Pie Chart Styles */
+.simple-pie-chart {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.pie-chart-container {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.pie-segment {
+    position: absolute;
+    width: 50%;
+    height: 50%;
+    transform-origin: 100% 100%;
+    border-radius: 100% 0 0 0;
+}
+
+.pie-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.pie-legend-item {
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    color: #333;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: #f8f9fa;
+}
+
+.pie-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    margin-right: 8px;
+    display: inline-block;
+}
+
+.pie-label {
+    font-weight: 500;
+}
+
 /* Chart canvas styling - minimal constraints for natural sizing */
 .chart-container canvas {
     width: 100% !important;
@@ -140,6 +292,33 @@
     .chart-container .chart-table thead th,
     .chart-container .chart-table tbody td {
         padding: 8px 10px;
+    }
+    
+    /* Responsive chart adjustments */
+    .chart-area {
+        height: 200px;
+    }
+    
+    .chart-bars {
+        height: 170px;
+    }
+    
+    .chart-bar {
+        width: 6px;
+    }
+    
+    .chart-legend {
+        justify-content: flex-start;
+        gap: 10px;
+    }
+    
+    .legend-item {
+        font-size: 12px;
+    }
+    
+    .pie-chart-container {
+        width: 150px;
+        height: 150px;
     }
 }
 

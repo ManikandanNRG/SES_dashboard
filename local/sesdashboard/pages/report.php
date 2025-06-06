@@ -22,8 +22,39 @@ $PAGE->set_heading(get_string('emailreport', 'local_sesdashboard'));
 $page = optional_param('page', 0, PARAM_INT);
 $perpage = optional_param('perpage', 50, PARAM_INT);
 $status = optional_param('status', '', PARAM_ALPHA);
+
+// CRITICAL FIX: Use EXACT same timeframe filtering logic as dashboard
+$timeframe = optional_param('timeframe', 7, PARAM_INT);
 $from = optional_param('from', '', PARAM_TEXT);
 $to = optional_param('to', '', PARAM_TEXT);
+
+// If no explicit date range is provided, apply the timeframe filtering EXACTLY like dashboard
+if (empty($from) && empty($to)) {
+    // Validate timeframe to only allow 3, 5, or 7 days (same as dashboard)
+    if (!in_array($timeframe, [3, 5, 7])) {
+        $timeframe = 7;
+    }
+    
+    // CRITICAL FIX: Use EXACT same calculation as get_dashboard_stats method
+    // Instead of date strings, pass the timestamp directly to match dashboard behavior
+    $timestart = time() - (($timeframe - 1) * DAYSECS);
+    
+    // Override the get_filtered_count method to use direct timestamp comparison
+    // instead of date string conversion which can cause discrepancies
+    $repository = new \local_sesdashboard\repositories\email_repository();
+    
+    // Create custom method call that matches dashboard exactly
+    $from_timestamp = $timestart; // Use timestamp directly
+    $to_timestamp = time(); // Current time
+    
+    // Clear the date strings to force timestamp usage
+    $from = '';
+    $to = '';
+} else {
+    // If explicit dates provided, convert them to timestamps
+    $from_timestamp = !empty($from) ? strtotime($from) : 0;
+    $to_timestamp = !empty($to) ? strtotime($to . ' 23:59:59') : time();
+}
 
 // Handle search parameter more carefully - URL decode and handle + characters
 $search_raw = optional_param('search', '', PARAM_RAW);
@@ -35,7 +66,7 @@ $search = clean_param($search_raw, PARAM_TEXT);
 $search = trim($search);
 
 // DEBUG: Log filter parameters
-\local_sesdashboard\util\logger::info('Filter parameters - Page: ' . $page . ', Status: ' . $status . ', Search: ' . $search . ', From: ' . $from . ', To: ' . $to);
+\local_sesdashboard\util\logger::info('Filter parameters - Page: ' . $page . ', Status: ' . $status . ', Search: ' . $search . ', From: ' . $from . ', To: ' . $to . ', Timeframe: ' . $timeframe);
 
 // Get action parameter
 $action = optional_param('action', '', PARAM_ALPHA);
@@ -125,9 +156,16 @@ $baseurl = new moodle_url('/local/sesdashboard/pages/report.php');
 // Get repository instance
 $repository = new \local_sesdashboard\repositories\email_repository();
 
-// Get total count and records
-$total = $repository->get_filtered_count($status, $from, $to, $search);
-$emails = $repository->get_filtered_emails($page * $perpage, $perpage, $status, $from, $to, $search);
+// CRITICAL FIX: Use timestamp-based filtering when no explicit dates provided
+if (empty($from) && empty($to)) {
+    // Use the new timestamp-based methods for exact dashboard consistency
+    $total = $repository->get_filtered_count_by_timestamp($status, $from_timestamp, $to_timestamp, $search);
+    $emails = $repository->get_filtered_emails_by_timestamp($page * $perpage, $perpage, $status, $from_timestamp, $to_timestamp, $search);
+} else {
+    // Use regular date-based filtering when explicit dates provided
+    $total = $repository->get_filtered_count($status, $from, $to, $search);
+    $emails = $repository->get_filtered_emails($page * $perpage, $perpage, $status, $from, $to, $search);
+}
 
 // Convert emails to array and add formatted data
 $emails_array = [];
@@ -170,7 +208,7 @@ $totalpages = ceil($total / $perpage);
 $pagination_data = [];
 
 if ($totalpages > 1) {
-    // Build pagination URLs with current filters - FIXED: only include non-empty filter parameters
+    // Build pagination URLs with current filters - FIXED: include timeframe and only non-empty filter parameters
     $filter_params = [];
     
     // Only add filter parameters if they have values
@@ -186,6 +224,9 @@ if ($totalpages > 1) {
     if (!empty($to)) {
         $filter_params['to'] = $to;
     }
+    
+    // FIXED: Always include timeframe in pagination URLs
+    $filter_params['timeframe'] = $timeframe;
     
     // Only include perpage if it's different from default
     if ($perpage != 50) {
@@ -259,6 +300,7 @@ $data = [
         'search' => $search,
         'from' => $from,
         'to' => $to,
+        'timeframe' => $timeframe,
         'status_send' => ($status === 'Send'),
         'status_delivery' => ($status === 'Delivery'), 
         'status_open' => ($status === 'Open'),
@@ -269,7 +311,8 @@ $data = [
         'status' => $status,
         'search' => $search,
         'from' => $from,
-        'to' => $to
+        'to' => $to,
+        'timeframe' => $timeframe
     ]),
     // Add current filter parameters for view details URLs
     'current_filters' => [
@@ -277,6 +320,7 @@ $data = [
         'search' => $search,
         'from' => $from,
         'to' => $to,
+        'timeframe' => $timeframe,
         'page' => $page,
         'perpage' => $perpage
     ],
@@ -285,6 +329,7 @@ $data = [
         'search' => $search,
         'from' => $from,
         'to' => $to,
+        'timeframe' => $timeframe,
         'page' => $page,
         'perpage' => ($perpage != 50) ? $perpage : null
     ], function($value) {
@@ -293,7 +338,13 @@ $data = [
     'downloadurl' => new moodle_url('/local/sesdashboard/pages/download.php'),
     'dashboard_url' => new moodle_url('/local/sesdashboard/pages/index.php'),
     'has_results' => !empty($emails_array),
-    'total_count' => $total
+    'total_count' => $total,
+    'timeframe' => $timeframe,
+    'timeframeoptions' => [
+        ['value' => 3, 'label' => get_string('last3days', 'local_sesdashboard'), 'selected' => ($timeframe == 3)],
+        ['value' => 5, 'label' => get_string('last5days', 'local_sesdashboard'), 'selected' => ($timeframe == 5)],
+        ['value' => 7, 'label' => get_string('last7days', 'local_sesdashboard'), 'selected' => ($timeframe == 7)],
+    ]
 ];
 
 // Add navigation links
