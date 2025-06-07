@@ -19,8 +19,10 @@ if (empty($from) && empty($to)) {
         $timeframe = 7;
     }
     
-    // CRITICAL FIX: Use EXACT same calculation as dashboard and report
-    $timestart = time() - (($timeframe - 1) * DAYSECS);
+    // FIXED: Use EXACT same calculation as dashboard and report (strtotime('today'))
+    // Use midnight timestamps for accurate day boundaries
+    $today = strtotime('today'); // Today at 00:00:00
+    $timestart = $today - (($timeframe - 1) * DAYSECS); // N-1 days ago at 00:00:00
     $from_timestamp = $timestart; // Use timestamp directly
     $to_timestamp = time(); // Current time
 } else {

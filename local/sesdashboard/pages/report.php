@@ -35,9 +35,10 @@ if (empty($from) && empty($to)) {
         $timeframe = 7;
     }
     
-    // CRITICAL FIX: Use EXACT same calculation as get_dashboard_stats method
-    // Instead of date strings, pass the timestamp directly to match dashboard behavior
-    $timestart = time() - (($timeframe - 1) * DAYSECS);
+    // FIXED: Use EXACT same calculation as dashboard (strtotime('today'))
+    // Use midnight timestamps for accurate day boundaries
+    $today = strtotime('today'); // Today at 00:00:00
+    $timestart = $today - (($timeframe - 1) * DAYSECS); // N-1 days ago at 00:00:00
     
     // Override the get_filtered_count method to use direct timestamp comparison
     // instead of date string conversion which can cause discrepancies

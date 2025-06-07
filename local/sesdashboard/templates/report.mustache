@@ -8,30 +8,19 @@
     <div class="filter-section mb-4 p-3" style="background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
         <h5 class="mb-3"><i class="fa fa-filter"></i> Filter Options</h5>
         
-        <!-- Timeframe Selector (same as dashboard) -->
-        <div class="timeframe-selector mb-3">
-            <form method="get" action="" class="form-inline">
+        <!-- FIXED: All filters in one row -->
+        <form action="{{baseurl}}" method="get" class="form-inline d-flex flex-wrap align-items-center">
+            
+            <div class="form-group mr-3 mb-2">
                 <label for="timeframe" class="mr-2"><strong>Time Period:</strong></label>
-                <select class="form-control mr-2" id="timeframe" name="timeframe" onchange="this.form.submit()">
+                <select class="form-control" id="timeframe" name="timeframe">
                     {{#timeframeoptions}}
                     <option value="{{value}}" {{#selected}}selected{{/selected}}>{{label}}</option>
                     {{/timeframeoptions}}
                 </select>
-                <!-- Preserve other filter parameters -->
-                {{#filters.status}}<input type="hidden" name="status" value="{{filters.status}}">{{/filters.status}}
-                {{#filters.search}}<input type="hidden" name="search" value="{{filters.search}}">{{/filters.search}}
-                <noscript>
-                    <button type="submit" class="btn btn-secondary btn-sm">Update</button>
-                </noscript>
-            </form>
-        </div>
-        
-        <!-- Main Filter Form -->
-        <form action="{{baseurl}}" method="get" class="form-inline">
-            <!-- Hidden timeframe field to preserve it -->
-            <input type="hidden" name="timeframe" value="{{timeframe}}">
+            </div>
             
-            <div class="form-group mr-3">
+            <div class="form-group mr-3 mb-2">
                 <label for="status" class="mr-2"><strong>{{#str}}status, local_sesdashboard{{/str}}:</strong></label>
                 <select name="status" id="status" class="form-control">
                     <option value="">{{#str}}all, local_sesdashboard{{/str}}</option>
@@ -43,20 +32,22 @@
                 </select>
             </div>
             
-            <div class="form-group mr-3">
+            <div class="form-group mr-3 mb-2">
                 <label for="search" class="mr-2"><strong>{{#str}}search, local_sesdashboard{{/str}}:</strong></label>
                 <input type="text" name="search" id="search" class="form-control" value="{{{filters.search}}}" placeholder="{{#str}}searchplaceholder, local_sesdashboard{{/str}}" style="width: 250px;">
             </div>
             
-            <button type="submit" class="btn btn-primary mr-2">
-                <i class="fa fa-search"></i> {{#str}}filter, local_sesdashboard{{/str}}
-            </button>
-            <a href="{{baseurl}}?timeframe={{timeframe}}" class="btn btn-secondary mr-2">
-                <i class="fa fa-refresh"></i> {{#str}}reset, local_sesdashboard{{/str}}
-            </a>
-            <a href="{{downloadurl}}?status={{filters.status}}&search={{filters.search}}&from={{filters.from}}&to={{filters.to}}&timeframe={{filters.timeframe}}" class="btn btn-success" data-filters="{{filters_json}}">
-                <i class="fa fa-download"></i> {{#str}}export, local_sesdashboard{{/str}}
-            </a>
+            <div class="form-group mb-2">
+                <button type="submit" class="btn btn-primary mr-2">
+                    <i class="fa fa-search"></i> {{#str}}filter, local_sesdashboard{{/str}}
+                </button>
+                <a href="{{baseurl}}?timeframe={{timeframe}}" class="btn btn-secondary mr-2">
+                    <i class="fa fa-refresh"></i> {{#str}}reset, local_sesdashboard{{/str}}
+                </a>
+                <a href="{{downloadurl}}?status={{filters.status}}&search={{filters.search}}&from={{filters.from}}&to={{filters.to}}&timeframe={{filters.timeframe}}" class="btn btn-success" data-filters="{{filters_json}}">
+                    <i class="fa fa-download"></i> {{#str}}export, local_sesdashboard{{/str}}
+                </a>
+            </div>
         </form>
         <small class="text-muted mt-2 d-block">
             <i class="fa fa-info-circle"></i> Note: Data is automatically cleaned up after 7 days. Showing data for last {{timeframe}} day(s).
