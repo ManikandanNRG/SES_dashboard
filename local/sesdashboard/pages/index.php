@@ -192,13 +192,33 @@ try {
     // Set labels (dates)
     $daily_chart->set_labels($daily_stats['dates']);
     
-    // Status Distribution Pie Chart - CORRECT ORDER: Send, Delivery, Bounce, Open
+    // Status Distribution Pie Chart - FIXED: Use same logic as line chart
+    // Calculate combined totals to match line chart data
+    $combined_delivered = 0;
+    $combined_opened = 0;
+    
+    // Add Delivery + DeliveryDelay for delivered (same as line chart)
+    if (isset($stats['Delivery'])) {
+        $combined_delivered += $stats['Delivery']->count;
+    }
+    if (isset($stats['DeliveryDelay'])) {
+        $combined_delivered += $stats['DeliveryDelay']->count;
+    }
+    
+    // Add Open + Click for opened (same as line chart)
+    if (isset($stats['Open'])) {
+        $combined_opened += $stats['Open']->count;
+    }
+    if (isset($stats['Click'])) {
+        $combined_opened += $stats['Click']->count;
+    }
+    
     $status_chart = new \core\chart_pie();
     $status_series = new \core\chart_series('Email Status', [
         $send_count,
-        $delivery_count,
+        $combined_delivered,
         $bounce_count,
-        $open_count
+        $combined_opened
     ]);
     $status_chart->add_series($status_series);
     $status_chart->set_labels(['Sent', 'Delivered', 'Bounced', 'Opened']);

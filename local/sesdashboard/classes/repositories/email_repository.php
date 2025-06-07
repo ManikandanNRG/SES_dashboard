@@ -186,9 +186,10 @@ class email_repository {
     public function get_dashboard_stats($timeframe = 7) {
         global $DB;
     
-        // FIXED: Calculate timestart for exactly last N days (today + previous N-1 days)
-        // This matches the get_daily_stats calculation
-        $timestart = time() - (($timeframe - 1) * DAYSECS);
+        // FIXED: Calculate timestart using same logic as get_daily_stats
+        // Use midnight timestamps for accurate day boundaries
+        $today = strtotime('today'); // Today at 00:00:00
+        $timestart = $today - (($timeframe - 1) * DAYSECS); // N-1 days ago at 00:00:00
     
         try {
             // OPTIMIZATION: Use more efficient query with indexing
@@ -221,12 +222,15 @@ class email_repository {
     public function get_daily_stats($days = 7) {
         global $DB;
 
-        // Calculate timestart and generate the complete date array for the last N days.
-        $timestart = time() - (($days - 1) * DAYSECS);
+        // FIXED: Calculate date range properly - start from N days ago to today
+        // Use midnight timestamps for accurate day boundaries
+        $today = strtotime('today'); // Today at 00:00:00
+        $timestart = $today - (($days - 1) * DAYSECS); // N-1 days ago at 00:00:00
+        
         $dates_array = [];
-        $start_date = $timestart;
         for ($i = 0; $i < $days; $i++) {
-            $dates_array[] = date('Y-m-d', $start_date + ($i * DAYSECS));
+            $date_timestamp = $timestart + ($i * DAYSECS);
+            $dates_array[] = date('Y-m-d', $date_timestamp);
         }
 
         // Initialize data arrays with zeros for each day in the range.
@@ -237,60 +241,85 @@ class email_repository {
             'bounced'   => array_fill_keys($dates_array, 0)
         ];
 
-        // EFFICIENT SQL: Group by date and status directly in the database.
-        // This prevents memory exhaustion by not loading all raw records into PHP.
-        // DATE(FROM_UNIXTIME(...)) is used as it's consistent with the debug report's SQL.
-        $sql = "SELECT DATE(FROM_UNIXTIME(timecreated)) AS event_date,
-                       status,
-                       COUNT(*) AS count
-                  FROM {local_sesdashboard_mail}
-                 WHERE timecreated >= ?
-              GROUP BY DATE(FROM_UNIXTIME(timecreated)), status
-              ORDER BY event_date ASC";
-
         try {
-            $results = $DB->get_records_sql($sql, [$timestart]);
-
-            // Process the pre-aggregated results from the database.
-            foreach ($results as $result) {
-                $record_date = $result->event_date;
-                $status = trim($result->status);
-                $count = (int)$result->count;
-
-                // Ensure the date from the DB exists in our date range.
-                if (isset($data_arrays['sent'][$record_date])) {
-                    switch ($status) {
-                        case 'Send':
-                            $data_arrays['sent'][$record_date] += $count;
-                            break;
-                        case 'Delivery':
-                            $data_arrays['delivered'][$record_date] += $count;
-                            break;
-                        case 'Open':
-                            $data_arrays['opened'][$record_date] += $count;
-                            break;
-                        case 'Bounce':
-                            $data_arrays['bounced'][$record_date] += $count;
-                            break;
-                        case 'Click':
-                            // Map Click counts to the 'opened' category for line chart consistency.
-                            $data_arrays['opened'][$record_date] += $count;
-                            break;
-                        case 'DeliveryDelay':
-                            // Map DeliveryDelay counts to the 'delivered' category.
-                            $data_arrays['delivered'][$record_date] += $count;
-                            break;
+            // HYBRID APPROACH: Use the working dashboard query approach but get date distribution
+            // This ensures we get ALL data (like pie chart) but distribute it by date efficiently
+            
+            \local_sesdashboard\util\logger::debug("get_daily_stats: Using hybrid approach to get date distributions for each status");
+            
+            // Status mapping for line chart
+            $status_mapping = [
+                'Send' => 'sent',
+                'Delivery' => 'delivered',
+                'DeliveryDelay' => 'delivered',
+                'Bounce' => 'bounced',
+                'Open' => 'opened',
+                'Click' => 'opened'
+            ];
+            
+            $processed_debug = [];
+            
+            // For each status, get its date distribution using individual queries
+            foreach ($status_mapping as $status => $target_array) {
+                $status_sql = "SELECT FROM_UNIXTIME(timecreated, '%Y-%m-%d') AS event_date,
+                                      COUNT(*) AS count
+                               FROM {local_sesdashboard_mail}
+                               WHERE timecreated >= ? AND status = ?
+                               GROUP BY FROM_UNIXTIME(timecreated, '%Y-%m-%d')
+                               ORDER BY event_date ASC";
+                
+                $status_results = $DB->get_records_sql($status_sql, [$timestart, $status]);
+                
+                \local_sesdashboard\util\logger::debug("Status '$status': Found " . count($status_results) . " date groups");
+                
+                if (!isset($processed_debug[$status])) {
+                    $processed_debug[$status] = 0;
+                }
+                
+                foreach ($status_results as $result) {
+                    $record_date = $result->event_date;
+                    $count = (int)$result->count;
+                    
+                    // Only process if date is in our expected range
+                    if (array_key_exists($record_date, $data_arrays[$target_array])) {
+                        $data_arrays[$target_array][$record_date] += $count;
+                        $processed_debug[$status] += $count;
+                        \local_sesdashboard\util\logger::debug("Added $count '$status' records to '$target_array' for $record_date");
+                    } else {
+                        \local_sesdashboard\util\logger::debug("SKIPPED: Date '$record_date' not in expected range for status '$status'");
                     }
                 }
             }
+
+            // DEBUG: Final summary
+            \local_sesdashboard\util\logger::debug("=== FINAL DEBUG SUMMARY ===");
+            \local_sesdashboard\util\logger::debug("Successfully processed by status: " . json_encode($processed_debug));
+            
+            // DEBUG: Final array totals
+            $final_totals = [
+                'sent' => array_sum($data_arrays['sent']),
+                'delivered' => array_sum($data_arrays['delivered']),
+                'bounced' => array_sum($data_arrays['bounced']),
+                'opened' => array_sum($data_arrays['opened'])
+            ];
+            \local_sesdashboard\util\logger::debug("Final array totals: " . json_encode($final_totals));
+            
+            // VERIFICATION: Check against dashboard stats
+            $dashboard_totals = 0;
+            $dashboard_stats = $this->get_dashboard_stats($days);
+            foreach ($dashboard_stats as $status => $data) {
+                $dashboard_totals += $data->count;
+            }
+            $line_totals = array_sum($final_totals);
+            \local_sesdashboard\util\logger::debug("Dashboard total: $dashboard_totals, Line chart total: $line_totals");
+            
         } catch (Exception $e) {
             \local_sesdashboard\util\logger::debug("SQL query failed in get_daily_stats: " . $e->getMessage());
-            // In case of error, the arrays will remain filled with zeros.
         }
         
         // Return the final data, ensuring the keys (dates) are reset to indexed arrays for the chart library.
         return [
-            'dates'     => array_keys($data_arrays['sent']),
+            'dates'     => array_values($dates_array),
             'delivered' => array_values($data_arrays['delivered']),
             'opened'    => array_values($data_arrays['opened']),
             'sent'      => array_values($data_arrays['sent']),
