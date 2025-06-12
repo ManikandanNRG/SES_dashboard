@@ -40,7 +40,7 @@ if (empty($from) && empty($to)) {
     $emails = $repository->get_filtered_emails_by_timestamp(0, 0, $status, $from_timestamp, $to_timestamp, $search); // 0, 0 means no pagination
 } else {
     // Use regular date-based filtering when explicit dates provided
-    $emails = $repository->get_filtered_emails(0, 0, $status, $from, $to, $search); // 0, 0 means no pagination
+$emails = $repository->get_filtered_emails(0, 0, $status, $from, $to, $search); // 0, 0 means no pagination
 }
 
 // Prepare CSV data

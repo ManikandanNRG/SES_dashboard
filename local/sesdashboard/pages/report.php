@@ -360,5 +360,4 @@ $PAGE->navbar->add(get_string('emailreport', 'local_sesdashboard'));
 
 echo $OUTPUT->header();
 echo $OUTPUT->render_from_template('local_sesdashboard/report', $data);
-echo $OUTPUT->footer();
-\local_sesdashboard\util\logger::info('Report page completed');
+echo $OUTPUT->footer();\local_sesdashboard\util\logger::info('Report page completed');
