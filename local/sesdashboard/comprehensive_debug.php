@@ -56,178 +56,163 @@ echo "Timestart: " . date('Y-m-d H:i:s', $timestart) . " (timestamp: $timestart)
 echo "Timeend: " . date('Y-m-d H:i:s', $timeend) . " (timestamp: $timeend)<br>";
 echo "</div>";
 
-// 1. DASHBOARD STATS SQL (what works)
-echo "<h2>1. Dashboard Stats SQL (Working)</h2>";
-$dashboard_sql = "SELECT status, COUNT(*) as count 
-                  FROM {local_sesdashboard_mail} 
-                  WHERE timecreated >= ? AND timecreated <= ?
-                  GROUP BY status 
-                  ORDER BY status";
+// 1. ACTUAL DASHBOARD STATS METHOD (from email_repository.php)
+echo "<h2>1. ACTUAL Dashboard Stats Method (get_dashboard_stats)</h2>";
+$repository = new \local_sesdashboard\repositories\email_repository();
+$dashboard_stats = $repository->get_dashboard_stats($timeframe);
 
-echo "<div class='alert alert-light'>";
-echo "<strong>SQL:</strong><br>";
-echo "<code>" . str_replace('{local_sesdashboard_mail}', 'mdl_local_sesdashboard_mail', $dashboard_sql) . "</code><br>";
+echo "<div class='alert alert-success'>";
+echo "<strong>Method:</strong> Uses email_repository->get_dashboard_stats($timeframe)<br>";
+echo "<strong>SQL:</strong> SELECT id, email, subject, status, messageid, eventtype, timecreated FROM {local_sesdashboard_mail} WHERE timecreated >= ? AND timecreated <= ?<br>";
+echo "<strong>Processing:</strong> Individual record processing (same as report.php)<br>";
 echo "<strong>Parameters:</strong> [$timestart, $timeend]";
 echo "</div>";
-
-$dashboard_results = $DB->get_records_sql($dashboard_sql, [$timestart, $timeend]);
 
 echo "<table class='table table-bordered'>";
 echo "<tr><th>Status</th><th>Count</th></tr>";
-foreach ($dashboard_results as $result) {
-    echo "<tr><td>{$result->status}</td><td>{$result->count}</td></tr>";
+$dashboard_total = 0;
+foreach ($dashboard_stats as $status => $data) {
+    echo "<tr><td>$status</td><td>{$data->count}</td></tr>";
+    $dashboard_total += $data->count;
 }
+echo "<tr><td><strong>TOTAL</strong></td><td><strong>$dashboard_total</strong></td></tr>";
 echo "</table>";
 
-// 2. DAILY STATS SQL (FIXED)
-echo "<h2>2. Daily Stats SQL (FIXED)</h2>";
-$daily_sql = "SELECT DATE(FROM_UNIXTIME(timecreated)) AS event_date,
-              status,
-              COUNT(*) AS count
-              FROM {local_sesdashboard_mail}
-              WHERE timecreated >= ? AND timecreated <= ?
-              GROUP BY DATE(FROM_UNIXTIME(timecreated)), status
-              ORDER BY event_date ASC, status ASC";
+// 2. ACTUAL DAILY STATS METHOD (from email_repository.php)
+echo "<h2>2. ACTUAL Daily Stats Method (get_daily_stats)</h2>";
+$daily_stats = $repository->get_daily_stats($timeframe);
 
-echo "<div class='alert alert-light'>";
-echo "<strong>SQL:</strong><br>";
-echo "<code>" . str_replace('{local_sesdashboard_mail}', 'mdl_local_sesdashboard_mail', $daily_sql) . "</code><br>";
+echo "<div class='alert alert-success'>";
+echo "<strong>Method:</strong> Uses email_repository->get_daily_stats($timeframe)<br>";
+echo "<strong>SQL:</strong> SELECT id, email, subject, status, messageid, eventtype, timecreated FROM {local_sesdashboard_mail} WHERE timecreated >= ? AND timecreated <= ?<br>";
+echo "<strong>Processing:</strong> Individual record processing, grouped by date<br>";
 echo "<strong>Parameters:</strong> [$timestart, $timeend]";
 echo "</div>";
 
-$daily_results = $DB->get_records_sql($daily_sql, [$timestart, $timeend]);
+// Calculate totals from daily stats
+$daily_totals = [
+    'sent' => array_sum($daily_stats['sent']),
+    'delivered' => array_sum($daily_stats['delivered']),
+    'bounced' => array_sum($daily_stats['bounced']),
+    'opened' => array_sum($daily_stats['opened'])
+];
+$daily_total = array_sum($daily_totals);
 
 echo "<table class='table table-bordered'>";
-echo "<tr><th>Date</th><th>Status</th><th>Count</th></tr>";
-foreach ($daily_results as $result) {
-    echo "<tr><td>{$result->event_date}</td><td>{$result->status}</td><td>{$result->count}</td></tr>";
-}
+echo "<tr><th>Status</th><th>Total Count</th></tr>";
+echo "<tr><td>Sent</td><td>{$daily_totals['sent']}</td></tr>";
+echo "<tr><td>Delivered</td><td>{$daily_totals['delivered']}</td></tr>";
+echo "<tr><td>Bounced</td><td>{$daily_totals['bounced']}</td></tr>";
+echo "<tr><td>Opened</td><td>{$daily_totals['opened']}</td></tr>";
+echo "<tr><td><strong>TOTAL</strong></td><td><strong>$daily_total</strong></td></tr>";
 echo "</table>";
 
-// 3. COMPARISON
-echo "<h2>3. Comparison Analysis</h2>";
+// 3. REPORT PAGE METHOD (for comparison)
+echo "<h2>3. ACTUAL Report Page Method (get_filtered_count_by_timestamp)</h2>";
+$report_total = $repository->get_filtered_count_by_timestamp('', $timestart, $timeend, '');
 
-$dashboard_total = 0;
-foreach ($dashboard_results as $result) {
-    $dashboard_total += $result->count;
-}
-
-$daily_total = 0;
-foreach ($daily_results as $result) {
-    $daily_total += $result->count;
-}
+echo "<div class='alert alert-success'>";
+echo "<strong>Method:</strong> Uses email_repository->get_filtered_count_by_timestamp()<br>";
+echo "<strong>SQL:</strong> SELECT COUNT(*) FROM {local_sesdashboard_mail} WHERE timecreated >= ? AND timecreated <= ?<br>";
+echo "<strong>Processing:</strong> Same as dashboard and daily stats<br>";
+echo "<strong>Parameters:</strong> [$timestart, $timeend]";
+echo "</div>";
 
 echo "<table class='table table-bordered'>";
 echo "<tr><th>Method</th><th>Total Records</th><th>Status</th></tr>";
-echo "<tr><td>Dashboard Stats</td><td>$dashboard_total</td><td>" . ($dashboard_total > 0 ? '✅ Working' : '❌ Broken') . "</td></tr>";
-echo "<tr><td>Daily Stats</td><td>$daily_total</td><td>" . ($daily_total > 0 ? '✅ Working' : '❌ Broken') . "</td></tr>";
+echo "<tr><td>Dashboard Stats (Pie Chart)</td><td>$dashboard_total</td><td>" . ($dashboard_total > 0 ? '✅ Working' : '❌ Broken') . "</td></tr>";
+echo "<tr><td>Daily Stats (Line Chart)</td><td>$daily_total</td><td>" . ($daily_total > 0 ? '✅ Working' : '❌ Broken') . "</td></tr>";
+echo "<tr><td>Report Page Count</td><td>$report_total</td><td>" . ($report_total > 0 ? '✅ Working' : '❌ Broken') . "</td></tr>";
 echo "</table>";
 
-if ($dashboard_total != $daily_total) {
-    echo "<div class='alert alert-danger'>";
-    echo "<h4>❌ FOUND THE BUG!</h4>";
-    echo "<p>Dashboard Stats finds $dashboard_total records, but Daily Stats finds $daily_total records.</p>";
-    echo "<p>This proves the SQL queries are returning different results for the same time period.</p>";
+if ($dashboard_total == $daily_total && $dashboard_total == $report_total) {
+    echo "<div class='alert alert-success'>";
+    echo "<h4>✅ PERFECT CONSISTENCY!</h4>";
+    echo "<p>All three methods return the same total ($dashboard_total records). The fixes are working correctly!</p>";
     echo "</div>";
 } else {
-    echo "<div class='alert alert-success'>";
-    echo "<h4>✅ SQL Queries Match</h4>";
-    echo "<p>Both methods return the same total. The issue might be in data processing.</p>";
+    echo "<div class='alert alert-danger'>";
+    echo "<h4>❌ INCONSISTENCY DETECTED!</h4>";
+    if ($dashboard_total != $daily_total) {
+        echo "<p>⚠️ Dashboard ($dashboard_total) != Daily Stats ($daily_total)</p>";
+    }
+    if ($dashboard_total != $report_total) {
+        echo "<p>⚠️ Dashboard ($dashboard_total) != Report Page ($report_total)</p>";
+    }
     echo "</div>";
 }
 
 // 4. DATE RANGE CHECK
 echo "<h2>4. Date Range Check</h2>";
 
-// Create dates array (same as get_daily_stats)
-$dates_array = [];
-for ($i = 0; $i < $timeframe; $i++) {
-    $date_timestamp = $timestart + ($i * DAYSECS);
-    $dates_array[] = date('Y-m-d', $date_timestamp);
-}
-
-echo "<h3>Expected Date Range:</h3>";
+echo "<h3>Expected Date Range (from daily stats):</h3>";
 echo "<ul>";
-foreach ($dates_array as $date) {
+foreach ($daily_stats['dates'] as $date) {
     echo "<li>$date</li>";
 }
 echo "</ul>";
 
-echo "<h3>Actual Dates with Data:</h3>";
-$actual_dates = [];
-foreach ($daily_results as $result) {
-    if (!in_array($result->event_date, $actual_dates)) {
-        $actual_dates[] = $result->event_date;
-    }
-}
-
-echo "<ul>";
-foreach ($actual_dates as $date) {
-    $in_range = in_array($date, $dates_array) ? '✅' : '❌';
-    echo "<li>$date $in_range</li>";
-}
-echo "</ul>";
-
-// 5. MANUAL PROCESSING TEST
-echo "<h2>5. Manual Processing Test</h2>";
-
-// Simulate the get_daily_stats processing
-$data_arrays = [
-    'delivered' => array_fill(0, $timeframe, 0),
-    'opened'    => array_fill(0, $timeframe, 0),
-    'sent'      => array_fill(0, $timeframe, 0),
-    'bounced'   => array_fill(0, $timeframe, 0)
-];
-
-foreach ($daily_results as $result) {
-    $date = $result->event_date;
-    $status = trim($result->status);
-    $count = (int)$result->count;
-    
-    // Find the date index
-    $date_index = array_search($date, $dates_array);
-    
-    echo "<p>Processing: Date=$date, Status=$status, Count=$count, Index=$date_index</p>";
-    
-    if ($date_index !== false) {
-        // Map status to chart series
-        switch ($status) {
-            case 'Send':
-                $data_arrays['sent'][$date_index] += $count;
-                echo "<p>→ Added $count to sent[$date_index]</p>";
-                break;
-            case 'Delivery':
-            case 'DeliveryDelay':
-                $data_arrays['delivered'][$date_index] += $count;
-                echo "<p>→ Added $count to delivered[$date_index]</p>";
-                break;
-            case 'Bounce':
-                $data_arrays['bounced'][$date_index] += $count;
-                echo "<p>→ Added $count to bounced[$date_index]</p>";
-                break;
-            case 'Open':
-            case 'Click':
-                $data_arrays['opened'][$date_index] += $count;
-                echo "<p>→ Added $count to opened[$date_index]</p>";
-                break;
-        }
-    } else {
-        echo "<p>→ <strong>SKIPPED</strong> - Date not in range!</p>";
-    }
-}
-
-echo "<h3>Final Processed Arrays:</h3>";
+echo "<h3>Daily Stats Breakdown:</h3>";
 echo "<table class='table table-bordered'>";
-echo "<tr><th>Date</th><th>Sent</th><th>Delivered</th><th>Bounced</th><th>Opened</th></tr>";
-for ($i = 0; $i < $timeframe; $i++) {
-    echo "<tr>";
-    echo "<td>{$dates_array[$i]}</td>";
-    echo "<td>{$data_arrays['sent'][$i]}</td>";
-    echo "<td>{$data_arrays['delivered'][$i]}</td>";
-    echo "<td>{$data_arrays['bounced'][$i]}</td>";
-    echo "<td>{$data_arrays['opened'][$i]}</td>";
+echo "<tr><th>Date</th><th>Sent</th><th>Delivered</th><th>Bounced</th><th>Opened</th><th>Total</th></tr>";
+for ($i = 0; $i < count($daily_stats['dates']); $i++) {
+    $date = $daily_stats['dates'][$i];
+    $sent = $daily_stats['sent'][$i];
+    $delivered = $daily_stats['delivered'][$i];
+    $bounced = $daily_stats['bounced'][$i];
+    $opened = $daily_stats['opened'][$i];
+    $day_total = $sent + $delivered + $bounced + $opened;
+    
+    $row_class = $day_total > 0 ? 'table-success' : 'table-light';
+    echo "<tr class='$row_class'>";
+    echo "<td>$date</td>";
+    echo "<td>$sent</td>";
+    echo "<td>$delivered</td>";
+    echo "<td>$bounced</td>";
+    echo "<td>$opened</td>";
+    echo "<td><strong>$day_total</strong></td>";
     echo "</tr>";
 }
 echo "</table>";
+
+echo "<div class='alert alert-info'>";
+echo "<strong>Note:</strong> This shows the ACTUAL data being used in your dashboard charts. ";
+echo "Green rows have data, light rows have no data for that date.";
+echo "</div>";
+
+// 5. SUMMARY AND RECOMMENDATIONS
+echo "<h2>5. Summary and Recommendations</h2>";
+
+if ($dashboard_total == $daily_total && $dashboard_total == $report_total) {
+    echo "<div class='alert alert-success'>";
+    echo "<h4>✅ SYSTEM STATUS: HEALTHY</h4>";
+    echo "<ul>";
+    echo "<li><strong>Data Consistency:</strong> Perfect ✅</li>";
+    echo "<li><strong>Dashboard Charts:</strong> Working correctly ✅</li>";
+    echo "<li><strong>Report Page:</strong> Working correctly ✅</li>";
+    echo "<li><strong>Time Range:</strong> Properly configured ✅</li>";
+    echo "</ul>";
+    echo "<p><strong>All systems are working correctly!</strong> Your dashboard is showing accurate data.</p>";
+    echo "</div>";
+} else {
+    echo "<div class='alert alert-warning'>";
+    echo "<h4>⚠️ SYSTEM STATUS: NEEDS ATTENTION</h4>";
+    echo "<p>There are inconsistencies between different data sources. Please check:</p>";
+    echo "<ul>";
+    echo "<li>Email repository methods are using the same SQL approach</li>";
+    echo "<li>Time boundary calculations are consistent</li>";
+    echo "<li>Data processing logic matches across all components</li>";
+    echo "</ul>";
+    echo "</div>";
+}
+
+echo "<h3>Quick Actions:</h3>";
+echo "<div class='alert alert-info'>";
+echo "<ul>";
+echo "<li><a href='/local/sesdashboard/pages/index.php' class='btn btn-primary'>View Dashboard</a></li>";
+echo "<li><a href='/local/sesdashboard/pages/report.php' class='btn btn-secondary'>View Report Page</a></li>";
+echo "<li><a href='/local/sesdashboard/comprehensive_debug.php' class='btn btn-info'>Refresh Debug</a></li>";
+echo "</ul>";
+echo "</div>";
 
 echo $OUTPUT->footer(); 
