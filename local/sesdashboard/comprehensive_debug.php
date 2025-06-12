@@ -1,7 +1,18 @@
 <?php
 /**
- * Debug Daily Stats vs Dashboard Stats
- * Compare the exact SQL and results to find the discrepancy
+ * SES Dashboard Comprehensive Debug Tool
+ * 
+ * This is the MAIN debug file for the SES Dashboard plugin.
+ * It provides comprehensive analysis of all data sources:
+ * - Dashboard stats (pie chart)
+ * - Daily stats (line chart) 
+ * - SQL query comparison
+ * - Time boundary analysis
+ * - Date range verification
+ * - Manual processing simulation
+ * - Step-by-step debugging
+ * 
+ * Use this file to troubleshoot any data inconsistencies.
  */
 
 require_once(dirname(dirname(dirname(__FILE__))) . '/config.php');
@@ -12,15 +23,24 @@ $context = context_system::instance();
 require_capability('local/sesdashboard:manage', $context);
 
 $PAGE->set_context($context);
-$PAGE->set_url(new moodle_url('/local/sesdashboard/fix_daily_stats_debug.php'));
-$PAGE->set_title('Fix Daily Stats Debug');
-$PAGE->set_heading('Fix Daily Stats Debug');
+$PAGE->set_url(new moodle_url('/local/sesdashboard/comprehensive_debug.php'));
+$PAGE->set_title('SES Dashboard Comprehensive Debug');
+$PAGE->set_heading('SES Dashboard Comprehensive Debug');
 
 echo $OUTPUT->header();
 
 global $DB;
 
-echo "<h1>🔍 Dashboard vs Daily Stats SQL Comparison</h1>";
+echo "<h1>🔍 SES Dashboard Comprehensive Debug Tool</h1>";
+echo "<div class='alert alert-primary'>";
+echo "<strong>📊 This tool analyzes ALL data sources:</strong><br>";
+echo "• Dashboard stats (pie chart)<br>";
+echo "• Daily stats (line chart)<br>";
+echo "• SQL query comparison<br>";
+echo "• Time boundary analysis<br>";
+echo "• Date range verification<br>";
+echo "• Manual processing simulation";
+echo "</div>";
 
 $timeframe = 7;
 
