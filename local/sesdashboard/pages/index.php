@@ -59,8 +59,8 @@ try {
     $repository = new \local_sesdashboard\repositories\email_repository();
     $timeframe = optional_param('timeframe', 7, PARAM_INT);
     
-    // Validate timeframe to only allow 3, 5, or 7 days
-    if (!in_array($timeframe, [3, 5, 7])) {
+    // Validate timeframe to allow 0 (today), 3, 5, or 7 days
+    if (!in_array($timeframe, [0, 3, 5, 7])) {
         $timeframe = 7;
     }
     
@@ -264,6 +264,7 @@ $template_context = [
     'daily_stats' => $daily_stats,
     'chart_data' => $chart_data,
     'timeframeoptions' => [
+        ['value' => 0, 'label' => 'Today', 'selected' => ($timeframe == 0)],
         ['value' => 3, 'label' => get_string('last3days', 'local_sesdashboard'), 'selected' => ($timeframe == 3)],
         ['value' => 5, 'label' => get_string('last5days', 'local_sesdashboard'), 'selected' => ($timeframe == 5)],
         ['value' => 7, 'label' => get_string('last7days', 'local_sesdashboard'), 'selected' => ($timeframe == 7)],

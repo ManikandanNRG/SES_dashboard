@@ -193,7 +193,15 @@ class email_repository {
     
         // Use EXACT same time calculation as get_daily_stats and report.php
         $today = strtotime('today'); // Today at 00:00:00
-        $timestart = $today - (($timeframe - 1) * DAYSECS); // N-1 days ago at 00:00:00
+        
+        if ($timeframe == 0) {
+            // Today only - from midnight today to current time
+            $timestart = $today;
+        } else {
+            // N days - from N-1 days ago at midnight
+            $timestart = $today - (($timeframe - 1) * DAYSECS); // N-1 days ago at 00:00:00
+        }
+        
         $timeend = time(); // Current time as upper boundary
     
         try {
@@ -249,23 +257,45 @@ class email_repository {
         
         // Use EXACT same time calculation as report.php and dashboard
         $today = strtotime('today'); // Today at 00:00:00
-        $timestart = $today - (($days - 1) * DAYSECS); // N-1 days ago at 00:00:00
-        $timeend = time(); // Current time as upper boundary
         
-        // Create dates array for the chart
-        $dates_array = [];
-        for ($i = 0; $i < $days; $i++) {
-            $date_timestamp = $timestart + ($i * DAYSECS);
-            $dates_array[] = date('Y-m-d', $date_timestamp);
-        }
+        if ($days == 0) {
+            // Today only - show hourly data instead of daily
+            $timestart = $today;
+            $timeend = time();
+            
+            // For "Today", show hourly breakdown (24 hours)
+            $dates_array = [];
+            for ($i = 0; $i < 24; $i++) {
+                $dates_array[] = sprintf('%02d:00', $i);
+            }
+            
+            // Initialize data arrays for 24 hours
+            $data_arrays = [
+                'delivered' => array_fill(0, 24, 0),
+                'opened'    => array_fill(0, 24, 0),
+                'sent'      => array_fill(0, 24, 0),
+                'bounced'   => array_fill(0, 24, 0)
+            ];
+        } else {
+            // N days - from N-1 days ago at midnight
+            $timestart = $today - (($days - 1) * DAYSECS); // N-1 days ago at 00:00:00
+            $timeend = time(); // Current time as upper boundary
+            
+            // Create dates array for the chart
+            $dates_array = [];
+            for ($i = 0; $i < $days; $i++) {
+                $date_timestamp = $timestart + ($i * DAYSECS);
+                $dates_array[] = date('Y-m-d', $date_timestamp);
+            }
 
-        // Initialize data arrays
-        $data_arrays = [
-            'delivered' => array_fill(0, $days, 0),
-            'opened'    => array_fill(0, $days, 0),
-            'sent'      => array_fill(0, $days, 0),
-            'bounced'   => array_fill(0, $days, 0)
-        ];
+            // Initialize data arrays
+            $data_arrays = [
+                'delivered' => array_fill(0, $days, 0),
+                'opened'    => array_fill(0, $days, 0),
+                'sent'      => array_fill(0, $days, 0),
+                'bounced'   => array_fill(0, $days, 0)
+            ];
+        }
 
         try {
             // CRITICAL FIX: Use the EXACT same SQL as report.php get_filtered_emails_by_timestamp
@@ -282,14 +312,19 @@ class email_repository {
             error_log("Daily Stats Parameters: [" . $timestart . ", " . $timeend . "]");
             error_log("Daily Stats Raw Results Count: " . count($results));
             
-            // Process each record and assign to correct date and status
+            // Process each record and assign to correct date/hour and status
             foreach ($results as $result) {
-                // Convert timestamp to date
-                $record_date = date('Y-m-d', $result->timecreated);
                 $status = trim($result->status);
                 
-                // Find the date index in our dates array
-                $date_index = array_search($record_date, $dates_array);
+                if ($days == 0) {
+                    // For "Today" view, group by hour
+                    $record_hour = (int)date('H', $result->timecreated);
+                    $date_index = $record_hour; // Hour index (0-23)
+                } else {
+                    // For multi-day view, group by date
+                    $record_date = date('Y-m-d', $result->timecreated);
+                    $date_index = array_search($record_date, $dates_array);
+                }
                 
                 if ($date_index !== false) {
                     // Map status to chart series - EXACT same logic as index.php
@@ -355,28 +390,41 @@ class email_repository {
         $cutoff_time = time() - (7 * DAYSECS);
         
         try {
+            // Debug: Log cutoff time
+            error_log("SES Cleanup: Cutoff time = " . $cutoff_time . " (" . date('Y-m-d H:i:s', $cutoff_time) . ")");
+            
             // Start transaction
             $transaction = $DB->start_delegated_transaction();
             
+            // Count records before deletion for reporting
+            $mail_count = $DB->count_records_select('local_sesdashboard_mail', 
+                'timecreated < ?', [$cutoff_time]);
+            $events_count = $DB->count_records_select('local_sesdashboard_events', 
+                'timestamp < ?', [$cutoff_time]);
+            
+            error_log("SES Cleanup: Found {$mail_count} mail records and {$events_count} event records to delete");
+            
             // Delete old records from main table
-            $deleted_mail = $DB->delete_records_select('local_sesdashboard_mail', 
+            $mail_deleted = $DB->delete_records_select('local_sesdashboard_mail', 
                 'timecreated < ?', [$cutoff_time]);
             
-            // Delete old records from events table
-            $deleted_events = $DB->delete_records_select('local_sesdashboard_events', 
+            // Delete old records from events table  
+            $events_deleted = $DB->delete_records_select('local_sesdashboard_events', 
                 'timestamp < ?', [$cutoff_time]);
+            
+            error_log("SES Cleanup: Delete operations completed - Mail: " . ($mail_deleted ? 'success' : 'failed') . ", Events: " . ($events_deleted ? 'success' : 'failed'));
             
             // Commit transaction
             $transaction->allow_commit();
             
             // Log cleanup results
             return [
-                'mail_deleted' => $deleted_mail,
-                'events_deleted' => $deleted_events,
+                'mail_deleted' => $mail_count,
+                'events_deleted' => $events_count,
                 'cutoff_time' => $cutoff_time
             ];
             
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             $transaction->rollback($e);
             throw $e;
         }

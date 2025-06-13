@@ -98,6 +98,7 @@ echo '</ul>';
 echo '<form method="get">';
 echo '<label for="timeframe">Timeframe (days): </label>';
 echo '<select name="timeframe" id="timeframe">';
+echo '<option value="0"' . ($timeframe == 0 ? ' selected' : '') . '>Today</option>';
 echo '<option value="3"' . ($timeframe == 3 ? ' selected' : '') . '>3 days</option>';
 echo '<option value="5"' . ($timeframe == 5 ? ' selected' : '') . '>5 days</option>';
 echo '<option value="7"' . ($timeframe == 7 ? ' selected' : '') . '>7 days</option>';

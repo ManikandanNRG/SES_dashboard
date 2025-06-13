@@ -26,12 +26,24 @@ class cleanup_old_data extends \core\task\scheduled_task {
         mtrace('Starting SES Dashboard data cleanup...');
         
         try {
+            // Verify database connection
+            global $DB;
+            if (!$DB) {
+                throw new \Exception('Database connection not available');
+            }
+            
             $repository = new \local_sesdashboard\repositories\email_repository();
             
             // Get stats before cleanup
             $stats_before = $repository->get_cleanup_stats();
             mtrace("Records to be cleaned up: {$stats_before['old_mail_count']} mail records, {$stats_before['old_events_count']} event records");
             mtrace("Cutoff date: {$stats_before['cutoff_date']}");
+            
+            // Only proceed if there are records to clean up
+            if ($stats_before['old_mail_count'] == 0 && $stats_before['old_events_count'] == 0) {
+                mtrace("No old records found to clean up.");
+                return;
+            }
             
             // Perform database cleanup
             $cleanup_result = $repository->cleanup_old_data();
@@ -40,30 +52,25 @@ class cleanup_old_data extends \core\task\scheduled_task {
             mtrace("- Deleted {$cleanup_result['mail_deleted']} mail records");
             mtrace("- Deleted {$cleanup_result['events_deleted']} event records");
             
-            // ADDED: Clean up old log files
+            // Clean up old log files
             $log_cleanup_result = $this->cleanup_old_log_files();
             mtrace("Log file cleanup completed:");
             mtrace("- Deleted {$log_cleanup_result['files_deleted']} log files");
             mtrace("- Freed {$log_cleanup_result['space_freed']} bytes");
             
-            // Log to Moodle logs
-            $event = \core\event\base::create([
-                'context' => \context_system::instance(),
-                'other' => [
-                    'mail_deleted' => $cleanup_result['mail_deleted'],
-                    'events_deleted' => $cleanup_result['events_deleted'],
-                    'log_files_deleted' => $log_cleanup_result['files_deleted'],
-                    'log_space_freed' => $log_cleanup_result['space_freed']
-                ]
-            ]);
+            // Log success to Moodle logs (simplified)
+            error_log("SES Dashboard cleanup completed: {$cleanup_result['mail_deleted']} mail records, {$cleanup_result['events_deleted']} event records, {$log_cleanup_result['files_deleted']} log files deleted");
             
             mtrace('SES Dashboard cleanup completed successfully.');
             
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             mtrace('Error during SES Dashboard cleanup: ' . $e->getMessage());
+            mtrace('Stack trace: ' . $e->getTraceAsString());
             throw $e;
         }
     }
+    
+
     
     /**
      * Clean up old log files (older than 7 days)
@@ -110,7 +117,7 @@ class cleanup_old_data extends \core\task\scheduled_task {
                 }
             }
             
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             mtrace('Error cleaning up log files: ' . $e->getMessage());
         }
         
@@ -119,4 +126,4 @@ class cleanup_old_data extends \core\task\scheduled_task {
             'space_freed' => $space_freed
         ];
     }
-} 
+}

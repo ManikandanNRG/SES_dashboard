@@ -77,6 +77,9 @@ $string['emailnotfound'] = 'Email not found';
 // Task strings
 $string['cleanup_old_data_task'] = 'Clean up old SES email data (7+ days)';
 
+// Event strings
+$string['event_cleanup_completed'] = 'SES Dashboard cleanup completed';
+
 // Security and capabilities
 $string['sesdashboard:view'] = 'View SES Dashboard';
 $string['sesdashboard:manage'] = 'Manage SES Dashboard';

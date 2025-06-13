@@ -14,15 +14,22 @@ $to = optional_param('to', '', PARAM_TEXT);
 
 // If no explicit date range is provided, apply the timeframe filtering EXACTLY like report page
 if (empty($from) && empty($to)) {
-    // Validate timeframe to only allow 3, 5, or 7 days (same as dashboard and report)
-    if (!in_array($timeframe, [3, 5, 7])) {
+    // Validate timeframe to allow 0 (today), 3, 5, or 7 days (same as dashboard and report)
+    if (!in_array($timeframe, [0, 3, 5, 7])) {
         $timeframe = 7;
     }
     
     // FIXED: Use EXACT same calculation as dashboard and report (strtotime('today'))
     // Use midnight timestamps for accurate day boundaries
     $today = strtotime('today'); // Today at 00:00:00
-    $timestart = $today - (($timeframe - 1) * DAYSECS); // N-1 days ago at 00:00:00
+    
+    if ($timeframe == 0) {
+        // Today only - from midnight today to current time
+        $timestart = $today;
+    } else {
+        // N days - from N-1 days ago at midnight
+        $timestart = $today - (($timeframe - 1) * DAYSECS); // N-1 days ago at 00:00:00
+    }
     $from_timestamp = $timestart; // Use timestamp directly
     $to_timestamp = time(); // Current time
 } else {
