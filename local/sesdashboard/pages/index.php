@@ -107,49 +107,40 @@ try {
     }
     log_ses_dashboard("=== END STATUS DEBUG ===");
     
-    // IMPROVED CALCULATION LOGIC
-    // In SES, emails can have the following flow:
-    // 1. Send -> Delivery -> (possibly) Open
-    // 2. Send -> Bounce (failed delivery)
-    // 3. Some emails might have multiple status records
+    // RESTORED ORIGINAL LOGIC - Keep working condition intact
+    // The original logic was correct for email tracking scenarios
     
-    // FIXED: Use the maximum of Send count or Delivery+Bounce as total
-    // This handles cases where some emails have Delivery/Bounce but no Send record
+    // Calculate total emails properly - use the maximum of what we can determine
     $total_emails = max($send_count, $delivery_count + $bounce_count);
-    if ($total_emails > $send_count) {
-        log_ses_dashboard("Found emails with Delivery/Bounce but no Send record. Using max($send_count, " . ($delivery_count + $bounce_count) . ") = $total_emails as total");
-    }
     
     if ($total_emails > 0) {
         if ($send_count > 0) {
-            // If we have Send records, use traditional calculation
-            $send_rate = 100; // If we track it, 100% was sent
+            // If we have Send records, use send count as base
+            $total_emails = $send_count;
+            $send_rate = 100; // 100% of tracked emails were sent
             $delivery_rate = round(($delivery_count / $total_emails) * 100);
             $bounce_rate = round(($bounce_count / $total_emails) * 100);
         } else {
-            // If no Send records, show delivery/bounce rates based on total attempted
+            // If no Send records, use delivery+bounce as total attempted
+            $total_emails = $delivery_count + $bounce_count;
             $send_rate = 0; // No send tracking
-            $delivery_rate = round(($delivery_count / $total_emails) * 100);
-            $bounce_rate = round(($bounce_count / $total_emails) * 100);
+            $delivery_rate = $total_emails > 0 ? round(($delivery_count / $total_emails) * 100) : 0;
+            $bounce_rate = $total_emails > 0 ? round(($bounce_count / $total_emails) * 100) : 0;
         }
         
-        // Open rate: opens out of successfully delivered emails
+        // Open rate: opens out of successfully delivered emails (traditional email metric)
         $open_rate = $delivery_count > 0 ? round(($open_count / $delivery_count) * 100) : 0;
-        
-        // Data validation check
-        if (($delivery_count + $bounce_count) > $total_emails) {
-            log_ses_dashboard("WARNING: Data inconsistency detected! Delivery ($delivery_count) + Bounce ($bounce_count) = " . 
-                            ($delivery_count + $bounce_count) . " > Total sent ($total_emails)");
-        }
         
     } else {
-        // No send data, fallback to delivery-based calculations
-        $total_emails = max($delivery_count + $bounce_count, 1);
+        // No data fallback
+        $total_emails = 1;
         $send_rate = 0;
-        $delivery_rate = $total_emails > 0 ? round(($delivery_count / $total_emails) * 100) : 0;
-        $bounce_rate = $total_emails > 0 ? round(($bounce_count / $total_emails) * 100) : 0;
-        $open_rate = $delivery_count > 0 ? round(($open_count / $delivery_count) * 100) : 0;
+        $delivery_rate = 0;
+        $bounce_rate = 0;
+        $open_rate = 0;
     }
+    
+    log_ses_dashboard("Restored original calculation - Total: $total_emails, Send: $send_rate%, Delivery: $delivery_rate%, Bounce: $bounce_rate%, Open: $open_rate%");
     
     // Ensure no rate exceeds 100%
     $send_rate = min($send_rate, 100);
@@ -222,16 +213,18 @@ try {
     // Set labels (dates)
     $daily_chart->set_labels($daily_stats['dates']);
     
-    // Status Distribution Pie Chart - FIXED: Use same logic as summary stats
+    // Status Distribution Pie Chart - FIXED: Use exact same data as summary cards
     $status_chart = new \core\chart_pie();
     $status_series = new \core\chart_series('Email Status', [
-        $send_count,     // Already calculated correctly above
-        $delivery_count, // Already calculated correctly above (Delivery + DeliveryDelay)
-        $bounce_count,   // Already calculated correctly above
-        $open_count      // Already calculated correctly above (Open + Click)
+        $send_count,     // Matches summary card exactly
+        $delivery_count, // Matches summary card exactly (Delivery + DeliveryDelay)
+        $bounce_count,   // Matches summary card exactly
+        $open_count      // Matches summary card exactly (Open + Click)
     ]);
     $status_chart->add_series($status_series);
     $status_chart->set_labels(['Sent', 'Delivered', 'Bounced', 'Opened']);
+    
+    log_ses_dashboard("Pie chart data matches summary cards - Send: $send_count, Delivery: $delivery_count, Bounce: $bounce_count, Open: $open_count");
     
     log_ses_dashboard('Charts created successfully');
     
