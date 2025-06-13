@@ -185,8 +185,8 @@ class email_repository {
     }
 
     /**
-     * CRITICAL FIX: Get dashboard stats using the EXACT same SQL approach as report.php and daily stats
-     * This ensures pie chart shows the same data as line chart and report page
+     * Get dashboard stats by counting UNIQUE MESSAGE IDs by their final status
+     * This prevents double-counting emails that have multiple lifecycle events
      */
     public function get_dashboard_stats($timeframe = 7) {
         global $DB;
@@ -205,23 +205,32 @@ class email_repository {
         $timeend = time(); // Current time as upper boundary
     
         try {
-            // CRITICAL FIX: Use the EXACT same SQL as report.php and daily stats
-            // This ensures pie chart data matches line chart and report page exactly
-            $sql = "SELECT id, email, subject, status, messageid, eventtype, timecreated 
+            // FIXED: Count unique message IDs by their highest priority status
+            // Priority: Bounce > Delivery > Open > Click > Send
+            // This ensures each email is counted only once by its most important status
+            $sql = "SELECT messageid,
+                           CASE 
+                               WHEN MAX(CASE WHEN status = 'Bounce' THEN 1 ELSE 0 END) = 1 THEN 'Bounce'
+                               WHEN MAX(CASE WHEN status IN ('Delivery', 'DeliveryDelay') THEN 1 ELSE 0 END) = 1 THEN 'Delivery'
+                               WHEN MAX(CASE WHEN status = 'Open' THEN 1 ELSE 0 END) = 1 THEN 'Open'
+                               WHEN MAX(CASE WHEN status = 'Click' THEN 1 ELSE 0 END) = 1 THEN 'Click'
+                               ELSE 'Send'
+                           END as final_status
                     FROM {local_sesdashboard_mail} 
                     WHERE timecreated >= ? AND timecreated <= ?
-                    ORDER BY timecreated DESC";
+                    GROUP BY messageid";
+            
             $results = $DB->get_records_sql($sql, [$timestart, $timeend]);
             
-            // DEBUG: Log the query and total records to verify
-            error_log("Dashboard Stats SQL (FIXED): " . $sql);
+            // DEBUG: Log the query and total unique message IDs
+            error_log("Dashboard Stats SQL (UNIQUE): " . $sql);
             error_log("Dashboard Stats Parameters: [" . $timestart . ", " . $timeend . "]");
-            error_log("Dashboard Stats Raw Results Count: " . count($results));
+            error_log("Dashboard Stats Unique Message IDs: " . count($results));
             
-            // Process each record and count by status (same as daily stats processing)
+            // Count unique message IDs by their final status
             $status_counts = [];
             foreach ($results as $result) {
-                $status = trim($result->status);
+                $status = trim($result->final_status);
                 if (!isset($status_counts[$status])) {
                     $status_counts[$status] = 0;
                 }
@@ -234,11 +243,14 @@ class email_repository {
                 $stats[$status] = (object)['count' => $count];
             }
             
-            // DEBUG: Log the final counts to verify they match line chart
-            error_log("Dashboard Stats Final Counts:");
+            // DEBUG: Log the final counts
+            error_log("Dashboard Stats Final Counts (UNIQUE):");
+            $total_unique = 0;
             foreach ($stats as $status => $data) {
-                error_log("Status '$status': {$data->count} records");
+                error_log("Status '$status': {$data->count} unique emails");
+                $total_unique += $data->count;
             }
+            error_log("Total unique emails: $total_unique");
             
             return $stats;
             
@@ -298,42 +310,50 @@ class email_repository {
         }
 
         try {
-            // CRITICAL FIX: Use the EXACT same SQL as report.php get_filtered_emails_by_timestamp
-            // This is the SQL that works correctly in report.php
-            $sql = "SELECT id, email, subject, status, messageid, eventtype, timecreated 
+            // FIXED: Get unique message IDs with their final status and latest timestamp
+            // This ensures line chart shows same totals as pie chart
+            $sql = "SELECT messageid,
+                           CASE 
+                               WHEN MAX(CASE WHEN status = 'Bounce' THEN 1 ELSE 0 END) = 1 THEN 'Bounce'
+                               WHEN MAX(CASE WHEN status IN ('Delivery', 'DeliveryDelay') THEN 1 ELSE 0 END) = 1 THEN 'Delivery'
+                               WHEN MAX(CASE WHEN status = 'Open' THEN 1 ELSE 0 END) = 1 THEN 'Open'
+                               WHEN MAX(CASE WHEN status = 'Click' THEN 1 ELSE 0 END) = 1 THEN 'Click'
+                               ELSE 'Send'
+                           END as final_status,
+                           MAX(timecreated) as latest_timecreated
                     FROM {local_sesdashboard_mail} 
                     WHERE timecreated >= ? AND timecreated <= ?
-                    ORDER BY timecreated DESC";
+                    GROUP BY messageid";
             
             $results = $DB->get_records_sql($sql, [$timestart, $timeend]);
             
-            // DEBUG: Log the query and total records to verify
-            error_log("Daily Stats SQL (FIXED): " . $sql);
+            // DEBUG: Log the query and total unique message IDs
+            error_log("Daily Stats SQL (UNIQUE): " . $sql);
             error_log("Daily Stats Parameters: [" . $timestart . ", " . $timeend . "]");
-            error_log("Daily Stats Raw Results Count: " . count($results));
+            error_log("Daily Stats Unique Message IDs: " . count($results));
             
-            // Process each record and assign to correct date/hour and status
+            // Process each unique message ID and assign to correct date/hour by final status
             foreach ($results as $result) {
-                $status = trim($result->status);
+                $status = trim($result->final_status);
+                $timecreated = $result->latest_timecreated;
                 
                 if ($days == 0) {
                     // For "Today" view, group by hour
-                    $record_hour = (int)date('H', $result->timecreated);
+                    $record_hour = (int)date('H', $timecreated);
                     $date_index = $record_hour; // Hour index (0-23)
                 } else {
                     // For multi-day view, group by date
-                    $record_date = date('Y-m-d', $result->timecreated);
+                    $record_date = date('Y-m-d', $timecreated);
                     $date_index = array_search($record_date, $dates_array);
                 }
                 
                 if ($date_index !== false) {
-                    // Map status to chart series - EXACT same logic as index.php
+                    // Map final status to chart series - same priority as dashboard
                     switch ($status) {
                         case 'Send':
                             $data_arrays['sent'][$date_index]++;
                             break;
                         case 'Delivery':
-                        case 'DeliveryDelay':
                             $data_arrays['delivered'][$date_index]++;
                             break;
                         case 'Bounce':
@@ -346,7 +366,8 @@ class email_repository {
                     }
                 } else {
                     // DEBUG: Log dates that fall outside expected range
-                    error_log("Date outside range: " . $record_date . " (record timestamp: " . $result->timecreated . ")");
+                    $record_date = date('Y-m-d', $timecreated);
+                    error_log("Date outside range: " . $record_date . " (record timestamp: " . $timecreated . ")");
                 }
             }
             

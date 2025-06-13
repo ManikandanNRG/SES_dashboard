@@ -113,15 +113,18 @@ try {
     // 2. Send -> Bounce (failed delivery)
     // 3. Some emails might have multiple status records
     
-    // FIXED: Use the maximum of Send count or Delivery+Bounce as total
-    // This handles cases where some emails have Delivery/Bounce but no Send record
-    $total_emails = max($send_count, $delivery_count + $bounce_count);
-    if ($total_emails > $send_count) {
-        log_ses_dashboard("Found emails with Delivery/Bounce but no Send record. Using max($send_count, " . ($delivery_count + $bounce_count) . ") = $total_emails as total");
+    // CRITICAL FIX: If no Send records, use Delivery + Bounce as total
+    // Many SES configurations don't track Send events, only Delivery/Bounce
+    $total_emails = $send_count;
+    if ($total_emails == 0) {
+        // Fallback: use delivery + bounce as total attempted emails
+        $total_emails = $delivery_count + $bounce_count;
+        log_ses_dashboard("No Send records found, using Delivery + Bounce as total: $total_emails");
     }
     
     if ($total_emails > 0) {
-        if ($send_count > 0) {
+        // FIXED: Adjust rates calculation based on available data
+    if ($send_count > 0) {
             // If we have Send records, use traditional calculation
             $send_rate = 100; // If we track it, 100% was sent
             $delivery_rate = round(($delivery_count / $total_emails) * 100);
