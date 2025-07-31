@@ -426,3 +426,18 @@ dt .fa {
 label .fa {
     margin-right: 6px;
 }
+
+/* --- Chart Sizing Fixes --- */
+.chart-container,
+.chart-container > div,
+.chart-container canvas {
+    min-height: 350px !important;
+    width: 100% !important;
+    display: block !important;
+}
+
+/* Only chart cards get a min-height */
+.ses-dashboard .chart-card,
+.ses-dashboard .chart-card .card-body {
+    min-height: 400px;
+}
