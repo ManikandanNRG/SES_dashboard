@@ -192,7 +192,7 @@ class email_repository {
         global $DB;
     
         // Use EXACT same time calculation as get_daily_stats and report.php
-        $today = strtotime('today'); // Today at 00:00:00
+        $today = usergetmidnight(time()); // Today at 00:00:00 in user's timezone
         
         if ($timeframe == 0) {
             // Today only - from midnight today to current time
@@ -268,7 +268,7 @@ class email_repository {
         global $DB;
         
         // Use EXACT same time calculation as report.php and dashboard
-        $today = strtotime('today'); // Today at 00:00:00
+        $today = usergetmidnight(time()); // Today at 00:00:00 in user's timezone
         
         if ($days == 0) {
             // Today only - show hourly data instead of daily

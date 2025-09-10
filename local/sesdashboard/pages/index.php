@@ -97,6 +97,15 @@ try {
     if (isset($stats['Click'])) {
         $open_count += $stats['Click']->count;
     }
+
+    // For display purposes: when viewing any timeframe, some emails will already have final statuses
+    // other than 'Send'. In that case, show the total unique emails attempted as the send count
+    // to avoid showing zero when there was activity. Attempts ~= Delivered + Bounced when Send events
+    // are not recorded separately.
+    $send_count_display = $send_count;
+    if ($send_count_display == 0) {
+        $send_count_display = $delivery_count + $bounce_count;
+    }
     
     log_ses_dashboard("Calculated counts - Send: $send_count, Delivery: $delivery_count, Bounce: $bounce_count, Open: $open_count");
     
@@ -199,7 +208,20 @@ try {
     $daily_chart->set_smooth(true);
     
     // Create series in the correct order: Send → Delivery → Bounce → Open
-    $sent_series = new \core\chart_series('Sent', $daily_stats['sent']);
+    // If repository 'sent' series is empty (common when sends quickly transition to final states),
+    // approximate 'sent' as delivered + bounced per bucket for visualization.
+    $sent_series_data = $daily_stats['sent'];
+    $sum_sent_series = array_sum($sent_series_data);
+    if ($sum_sent_series == 0) {
+        $sent_series_data = [];
+        $n = count($daily_stats['delivered']);
+        for ($i = 0; $i < $n; $i++) {
+            $d = isset($daily_stats['delivered'][$i]) ? (int)$daily_stats['delivered'][$i] : 0;
+            $b = isset($daily_stats['bounced'][$i]) ? (int)$daily_stats['bounced'][$i] : 0;
+            $sent_series_data[] = $d + $b;
+        }
+    }
+    $sent_series = new \core\chart_series('Sent', $sent_series_data);
     $delivered_series = new \core\chart_series('Delivered', $daily_stats['delivered']);
     $bounced_series = new \core\chart_series('Bounced', $daily_stats['bounced']);
     $opened_series = new \core\chart_series('Opened', $daily_stats['opened']);
@@ -216,7 +238,7 @@ try {
     // Status Distribution Pie Chart - FIXED: Use exact same data as summary cards
     $status_chart = new \core\chart_pie();
     $status_series = new \core\chart_series('Email Status', [
-        $send_count,     // Matches summary card exactly
+        $send_count_display, // Matches summary card fallback (attempts when Send=0)
         $delivery_count, // Matches summary card exactly (Delivery + DeliveryDelay)
         $bounce_count,   // Matches summary card exactly
         $open_count      // Matches summary card exactly (Open + Click)
@@ -224,7 +246,7 @@ try {
     $status_chart->add_series($status_series);
     $status_chart->set_labels(['Sent', 'Delivered', 'Bounced', 'Opened']);
     
-    log_ses_dashboard("Pie chart data matches summary cards - Send: $send_count, Delivery: $delivery_count, Bounce: $bounce_count, Open: $open_count");
+    log_ses_dashboard("Pie chart data matches summary cards - Send: $send_count_display, Delivery: $delivery_count, Bounce: $bounce_count, Open: $open_count");
     
     log_ses_dashboard('Charts created successfully');
     
@@ -243,7 +265,7 @@ $template_context = [
     'bounce_rate' => $bounce_rate,     // 3. Bounce rate
     'open_rate' => $open_rate,         // 4. Open rate
     // ADDED: Include actual counts for display
-    'send_count' => $send_count,
+    'send_count' => $send_count_display,
     'delivery_count' => $delivery_count,
     'bounce_count' => $bounce_count,
     'open_count' => $open_count,
@@ -287,9 +309,6 @@ log_ses_dashboard('Template context - language strings loaded: ' .
         'emailstats' => get_string('emailstats', 'local_sesdashboard')
     ]
 ));
-
-// DEBUG: Log timestart to file
-error_log("SES DEBUG: Timestart = $timestart (" . date('Y-m-d H:i:s', $timestart) . ")");
 
 // Render the page
 try {
