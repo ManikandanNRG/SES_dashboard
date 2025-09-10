@@ -35,9 +35,8 @@ if (empty($from) && empty($to)) {
         $timeframe = 7;
     }
     
-    // FIXED: Use EXACT same calculation as dashboard (strtotime('today'))
-    // Use midnight timestamps for accurate day boundaries
-    $today = strtotime('today'); // Today at 00:00:00
+    // Use timezone-aware midnight for accurate day boundaries (match dashboard)
+    $today = usergetmidnight(time()); // Today at 00:00:00 in user's timezone
     
     if ($timeframe == 0) {
         // Today only - from midnight today to current time
